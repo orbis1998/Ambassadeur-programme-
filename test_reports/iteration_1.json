@@ -1,0 +1,66 @@
+{
+  "summary": "Backend + Frontend testing of VSM Ambassador PWA. 10/10 pytest tests pass against the public REACT_APP_BACKEND_URL. Login → dashboard → all sub-pages (withdraw, leaderboard, resources, notifications, settings) → logout flow verified on desktop. Mobile drawer + m-logout-btn working at 375x812. PWA manifest, sw.js and icons all return 200. Found 1 real backend bug: /api/ambassador/apply does NOT de-duplicate applications for an existing user and the /me endpoint returns the LATEST application, so re-applying for an already-approved user can flip the dashboard back to 'pending'. This bug was reproduced live (test_user briefly showed CANDIDATURE EN COURS D'EXAMEN); state was cleaned up after testing.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/ambassador/apply",
+        "issue": "No idempotency / dedup on ambassador_applications. Calling /apply with an email that already has an application inserts a new row with status='pending'. Combined with /api/ambassador/me returning the LATEST application by created_at desc, this can overwrite an approved user's status and push them back to the Pending screen. Reproduced live during testing.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "/api/ambassador/apply",
+        "issue": "ApplyResponse.already_existed is computed only from the Auth signup step; it is still false even when an ambassador_applications row already exists for that user_id. Consider checking applications table first and returning the existing application_id."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "LoginForm",
+        "issue": "On invalid login, the error toast/JSON-parse path logs 'Failed to execute json on Response: body stream already read' in console. UI still recovers and shows error to user, but the error handling code reads the response body twice.",
+        "selector": "[data-testid=\"login-submit-btn\"]",
+        "priority": "LOW"
+      },
+      {
+        "component": "Apply step 4 consent checkboxes (accept-truth/terms/contact)",
+        "issue": "data-testid is placed on a wrapper/label such that Playwright's locator.check() times out (element not recognized as checkbox). Standard click works in real users, but for stable automated testing, attach data-testid directly to the underlying <input type=checkbox> element.",
+        "selector": "[data-testid=\"accept-truth\"], [data-testid=\"accept-terms\"], [data-testid=\"accept-contact\"]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix duplicate ambassador_applications insertion in POST /api/ambassador/apply: before inserting, check for existing application by user_id and either return the existing one or update it (or restrict /me to non-rejected/latest-approved logic).",
+    "Move data-testid on consent checkboxes (accept-truth/terms/contact) onto the actual <input type=checkbox> so automated tests can drive them via .check().",
+    "Fix LoginForm error path that double-reads the fetch Response body (the console error 'body stream already read')."
+  ],
+  "critical_code_review_comments": [
+    "server.py /api/ambassador/apply has no dedup against existing applications; combined with /me's order=created_at.desc&limit=1, this can demote an approved ambassador back to pending. RCA confirmed during this run.",
+    "server.py uses os.environ[...] at import time for SUPABASE_* keys — good (fails fast). Keep that pattern.",
+    "verify_user_token calls Supabase /auth/v1/user on every request to /me; consider caching by JWT for short windows if traffic grows.",
+    "Frontend manifest/sw/icons all return 200 — PWA basics are correct.",
+    "Dashboard exposes good data-testid coverage on every stat/share/CTA — excellent for testability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/__init__.py",
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 pytest)",
+    "frontend": "~95% — every required data-testid present on dashboard, withdraw, resources, settings, mobile drawer, logout. Only apply form submit could not be driven end-to-end by Playwright because of consent-checkbox testid placement (not a functional bug)."
+  },
+  "test_credentials": "yann.test-1780920203@example.com / TestPass123! (status=approved, user_id 78dcfb4a-32af-4b29-8a85-dace5e585b63, application_id=24).",
+  "seed_data_creation": "Pytest created 1 new ambassador per run (test-<epoch>@example.com). The session-scope cleanup fixture in backend_test.py automatically removes any extra 'pending' applications inserted for the seeded test user so the approved state is preserved for subsequent frontend testing.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/backend_test.py and produce JUnit XML at /app/test_reports/pytest/pytest_results.xml. The seeded approved ambassador is application_id=24, status=approved — if you ever see the dashboard show 'Candidature en cours d'examen' for yann.test-1780920203, it means a stray pending row exists; delete pending rows for user_id 78dcfb4a-32af-4b29-8a85-dace5e585b63 via the Supabase service key (DELETE /rest/v1/ambassador_applications?user_id=eq.<uid>&status=eq.pending). The auto-cleanup fixture handles this when pytest runs to completion, but a crashed test run can leave residue.",
+  "rca of the issue": "RCA — Dashboard flipping to Pending: Step 1 — /api/ambassador/apply receives a payload whose email already has an Auth user. Step 2 — supabase_signup returns None (already exists); supabase_get_user_by_email returns the existing user_id. Step 3 — supabase_insert_application inserts a brand-new row with status='pending' (no uniqueness check on user_id). Step 4 — /api/ambassador/me queries ambassador_applications with order=created_at.desc&limit=1, so the new pending row is returned instead of the approved one. Step 5 — RequireAuth/RouteGuard in App.js routes status=pending users to the Pending page. Reproduction: POST /api/ambassador/apply twice for an approved user → login → user lands on Pending instead of Dashboard. Mitigation (recommended): before inserting, SELECT existing application by user_id; if found, return existing application_id with already_existed=true (no insert). Alternative: change /me to prefer status='approved' application over latest."
+}
