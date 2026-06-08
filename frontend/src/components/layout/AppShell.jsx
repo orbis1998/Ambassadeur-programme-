@@ -75,8 +75,8 @@ export default function AppShell() {
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-card/85 backdrop-blur border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
-          <Link to="/dashboard" className="block" data-testid="mobile-logo">
-            <img src="/icons/logo.png" alt="VSM Ambassador" className="h-9" />
+          <Link to="/dashboard" className="block">
+            <img src="/icons/logo.png" alt="VSM Ambassador" data-testid="mobile-logo" className="h-9" />
           </Link>
           <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="p-2 rounded-sm hover:bg-secondary">
             <Menu className="w-5 h-5" />

@@ -72,6 +72,7 @@ class MeResponse(BaseModel):
     profile: Optional[dict] = None
     application: Optional[dict] = None
     promo_codes: list = []
+    tracking_link: Optional[dict] = None
 
 
 class ResolveIdentifierRequest(BaseModel):

@@ -74,3 +74,23 @@ PWA séparée du site officiel www.vsmcollection.com permettant aux ambassadeurs
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`
+
+## Iteration 2 (2026-06-08)
+### New features
+- **Login flexible** : email / numéro téléphone / badge VSM-XXXX (backend `/api/auth/resolve-identifier`)
+- **Auto-redirect Pending → Dashboard** : polling 4s sur /api/ambassador/me, redirection automatique dès `status=approved`
+- **Codes promo** : nouvelle table `promo_codes` lue par le backend, affichée sur le dashboard (Tag rouge, design premium, copy button)
+- **Lien de tracking fonctionnel** : route frontend `/r/:slug` + endpoint `/api/track/:slug` enregistre le clic dans `ambassador_clicks` puis redirige vers `vsmcollection.com/?ref=slug` (le site officiel n'a pas besoin d'être modifié)
+- **Web Push notifications** (VAPID) : 
+  - clés VAPID générées et stockées dans backend/.env (et publique dans frontend/.env)
+  - hook `usePushSubscription` + bouton "Activer les notifications" sur le dashboard
+  - service worker `/sw.js` handle push + notificationclick events
+  - endpoints `/api/push/public-key`, `/api/push/subscribe`, `/api/push/test`, `/api/ambassador/notify-approval`
+  - subscriptions stockées dans la table `settings` (workaround sans DDL access)
+- **Nouveau logo** "Ambassador Program" intégré : icônes PWA 192/512 (any + maskable), favicon, page login, sidebar desktop, header mobile
+- **Auto-provisioning du tracking link** : `ensure_ambassador_link` crée un lien `VSM-XXXX` pour l'ambassadeur approuvé s'il n'en a pas
+
+### Fixes
+- Pydantic `MeResponse` model étendu avec `tracking_link: Optional[dict]`
+- `resolve-identifier` (phone) priorise les applications `status='approved'`
+- `data-testid='mobile-logo'` déplacé sur l'élément `<img>`
