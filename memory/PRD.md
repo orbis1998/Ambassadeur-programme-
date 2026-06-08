@@ -58,6 +58,12 @@ PWA séparée du site officiel www.vsmcollection.com permettant aux ambassadeurs
 ## Currency
 - All amounts in FC (Franc Congolais) — formatted with `Intl.NumberFormat('fr-FR')`
 
+## Bug fixes (2026-06-08, iteration 1)
+- Fixed idempotency on `/api/ambassador/apply` (no more duplicate pending rows demoting approved ambassadors).
+- `/api/ambassador/me` now prefers `status=approved` over latest row.
+- Login form: fixed double-read of fetch response on error.
+- Apply consent checkboxes: `data-testid` is now on the actual `<input type=checkbox>` for stable test automation.
+
 ## Backlog / Future
 - P1: Real-time order tracking via Supabase Realtime channels
 - P1: Push notifications (Web Push API + VAPID)

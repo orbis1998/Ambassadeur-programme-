@@ -308,8 +308,8 @@ function Field({ label, hint, required, children }) {
 function Checkbox({ testid, checked, onChange, children }) {
   return (
     <label className="flex items-start gap-3 cursor-pointer">
-      <input type="checkbox" data-testid={testid} checked={checked} onChange={onChange} className="w-4 h-4 mt-0.5 accent-primary" />
-      <span className="text-sm text-foreground/90">{children}</span>
+      <input type="checkbox" data-testid={testid} checked={!!checked} onChange={onChange} className="w-4 h-4 mt-0.5 accent-primary" />
+      <span data-testid={`${testid}-label`} className="text-sm text-foreground/90">{children}</span>
     </label>
   );
 }

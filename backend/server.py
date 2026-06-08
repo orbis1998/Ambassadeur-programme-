@@ -113,6 +113,23 @@ async def supabase_upsert_profile(client: httpx.AsyncClient, user_id: str, paylo
         logger.warning("profile upsert failed: %s %s", r.status_code, r.text)
 
 
+async def supabase_find_application(client: httpx.AsyncClient, user_id: str) -> Optional[dict]:
+    """Return the most relevant existing application for a user (approved > latest)."""
+    r = await client.get(
+        f"{SUPABASE_URL}/rest/v1/ambassador_applications",
+        headers=SVC_HEADERS,
+        params={"user_id": f"eq.{user_id}", "select": "*", "order": "created_at.desc"},
+        timeout=15,
+    )
+    if r.status_code != 200:
+        return None
+    rows = r.json() or []
+    if not rows:
+        return None
+    approved = next((x for x in rows if (x.get("status") or "").lower() == "approved"), None)
+    return approved or rows[0]
+
+
 async def supabase_insert_application(client: httpx.AsyncClient, app_payload: dict) -> int:
     r = await client.post(
         f"{SUPABASE_URL}/rest/v1/ambassador_applications",
@@ -168,7 +185,17 @@ async def submit_application(payload: ApplyRequest):
             "name": payload.full_name,
         })
 
-        # 3) insert ambassador_applications
+        # 3) Idempotency: if user already has an application, return it.
+        existing = await supabase_find_application(client, user_id)
+        if existing:
+            return ApplyResponse(
+                ok=True,
+                user_id=user_id,
+                application_id=int(existing["id"]),
+                already_existed=True,
+            )
+
+        # 4) insert ambassador_applications
         application_id = await supabase_insert_application(client, {
             "full_name": payload.full_name,
             "phone": payload.phone,
@@ -222,7 +249,12 @@ async def get_me(user=Depends(verify_user_token)):
             timeout=15,
         )
     profile = (r1.json() or [None])[0] if r1.status_code == 200 else None
-    application = (r2.json() or [None])[0] if r2.status_code == 200 else None
+    # Prefer an APPROVED application over the latest one (defensive against duplicate rows).
+    rows = r2.json() if r2.status_code == 200 else []
+    if not isinstance(rows, list):
+        rows = []
+    approved = next((x for x in rows if (x.get("status") or "").lower() == "approved"), None)
+    application = approved or (rows[0] if rows else None)
     return MeResponse(user_id=user_id, email=user.get("email"), profile=profile, application=application)
 
 

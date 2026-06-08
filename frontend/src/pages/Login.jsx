@@ -18,11 +18,12 @@ export default function Login() {
     setError('');
     setLoading(true);
     const { error } = await signIn(email.trim(), password);
-    setLoading(false);
     if (error) {
       setError(error.message || 'Identifiants incorrects.');
+      setLoading(false);
       return;
     }
+    setLoading(false);
     const dest = location.state?.from || '/dashboard';
     navigate(dest, { replace: true });
   };
