@@ -10,6 +10,7 @@ import Leaderboard from '@/pages/Leaderboard';
 import Resources from '@/pages/Resources';
 import Notifications from '@/pages/Notifications';
 import Settings from '@/pages/Settings';
+import TrackingRedirect from '@/pages/TrackingRedirect';
 import AppShell from '@/components/layout/AppShell';
 import '@/App.css';
 import { Loader2 } from 'lucide-react';
@@ -54,6 +55,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/r/:slug" element={<TrackingRedirect />} />
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/apply" element={<Apply />} />
       <Route path="/pending" element={

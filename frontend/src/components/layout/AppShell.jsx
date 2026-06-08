@@ -32,10 +32,7 @@ export default function AppShell() {
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card/60 backdrop-blur sticky top-0 h-screen" data-testid="sidebar">
         <div className="px-6 py-7 border-b border-border">
           <Link to="/dashboard" className="block" data-testid="logo-link">
-            <div className="font-display text-3xl font-bold tracking-tight">
-              VSM<span className="text-primary">.</span>
-            </div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-1">Ambassador Program</div>
+            <img src="/icons/logo.png" alt="VSM Ambassador Program" className="w-32" data-testid="sidebar-logo" />
           </Link>
         </div>
         <nav className="flex-1 px-3 py-6 space-y-1">
@@ -78,8 +75,8 @@ export default function AppShell() {
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-card/85 backdrop-blur border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
-          <Link to="/dashboard" className="font-display text-2xl font-bold" data-testid="mobile-logo">
-            VSM<span className="text-primary">.</span>
+          <Link to="/dashboard" className="block" data-testid="mobile-logo">
+            <img src="/icons/logo.png" alt="VSM Ambassador" className="h-9" />
           </Link>
           <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="p-2 rounded-sm hover:bg-secondary">
             <Menu className="w-5 h-5" />
@@ -93,7 +90,7 @@ export default function AppShell() {
           <div className="absolute inset-0 bg-black/70" onClick={() => setMobileOpen(false)} />
           <div className="absolute right-0 top-0 h-full w-72 bg-card border-l border-border p-5 animate-fade-in">
             <div className="flex justify-between items-center mb-6">
-              <div className="font-display text-2xl font-bold">VSM<span className="text-primary">.</span></div>
+              <img src="/icons/logo.png" alt="VSM Ambassador" className="h-9" />
               <button onClick={() => setMobileOpen(false)} data-testid="mobile-close-btn" className="p-2"><X className="w-5 h-5" /></button>
             </div>
             <nav className="space-y-1">

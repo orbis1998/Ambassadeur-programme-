@@ -7,13 +7,14 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [application, setApplication] = useState(null);
+  const [meExtras, setMeExtras] = useState({ promo_codes: [], tracking_link: null });
   const [loading, setLoading] = useState(true);
 
   const loadUserData = useCallback(async (userId, accessToken) => {
     if (!userId) {
       setProfile(null);
       setApplication(null);
-      return;
+      return null;
     }
     try {
       const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -25,22 +26,17 @@ export function AuthProvider({ children }) {
         const data = await res.json();
         setProfile(data.profile || null);
         setApplication(data.application || null);
-        return;
+        setMeExtras({ promo_codes: data.promo_codes || [], tracking_link: data.tracking_link || null });
+        return data;
       }
     } catch (_e) { /* fallthrough */ }
-    // Fallback: direct read (works only if RLS permits)
     const [{ data: p }, { data: app }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase
-        .from('ambassador_applications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      supabase.from('ambassador_applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
     setProfile(p || null);
     setApplication(app || null);
+    return { profile: p, application: app };
   }, []);
 
   useEffect(() => {
@@ -73,7 +69,8 @@ export function AuthProvider({ children }) {
   }, [loadUserData]);
 
   const refresh = useCallback(async () => {
-    if (session?.user) await loadUserData(session.user.id);
+    if (session?.user) return await loadUserData(session.user.id);
+    return null;
   }, [session, loadUserData]);
 
   const signIn = async (email, password) => {
@@ -81,30 +78,23 @@ export function AuthProvider({ children }) {
   };
 
   const signUp = async (email, password, metadata = {}) => {
-    return await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: metadata },
-    });
+    return await supabase.auth.signUp({ email, password, options: { data: metadata } });
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  const signOut = async () => { await supabase.auth.signOut(); };
 
   const value = {
     session,
     user: session?.user || null,
     profile,
     application,
+    promoCodes: meExtras.promo_codes,
+    trackingLink: meExtras.tracking_link,
     isApproved: application?.status === 'approved',
     isPending: application?.status === 'pending',
     isRejected: application?.status === 'rejected',
     loading,
-    signIn,
-    signUp,
-    signOut,
-    refresh,
+    signIn, signUp, signOut, refresh,
   };
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

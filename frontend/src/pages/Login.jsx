@@ -1,31 +1,53 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
 
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const resolveEmail = async (raw) => {
+    const v = raw.trim();
+    if (v.includes('@')) return v.toLowerCase();
+    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+    const r = await fetch(`${BACKEND_URL}/api/auth/resolve-identifier`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: v }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.detail || 'Identifiant introuvable');
+    }
+    const { email } = await r.json();
+    return email;
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const { error } = await signIn(email.trim(), password);
-    if (error) {
-      setError(error.message || 'Identifiants incorrects.');
+    try {
+      const email = await resolveEmail(identifier);
+      const { error } = await signIn(email, password);
+      if (error) {
+        setError('Identifiants incorrects.');
+        setLoading(false);
+        return;
+      }
       setLoading(false);
-      return;
+      navigate(location.state?.from || '/dashboard', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Identifiants incorrects.');
+      setLoading(false);
     }
-    setLoading(false);
-    const dest = location.state?.from || '/dashboard';
-    navigate(dest, { replace: true });
   };
 
   return (
@@ -33,25 +55,30 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8 animate-fade-up">
-            <Link to="/" className="inline-block" data-testid="brand-home-link">
-              <div className="font-display text-5xl font-bold tracking-tight">VSM<span className="text-primary">.</span></div>
-              <div className="text-[11px] uppercase tracking-[0.35em] text-muted-foreground mt-2">Ambassador Program</div>
+            <Link to="/" data-testid="brand-home-link" className="inline-block">
+              <img src="/icons/logo.png" alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
             </Link>
           </div>
 
           <div className="vsm-card p-7 sm:p-8 animate-fade-up stagger-1" data-testid="login-card">
-            <h1 className="text-2xl font-display font-bold mb-1">Connexion</h1>
-            <p className="text-sm text-muted-foreground mb-6">Accédez à votre espace ambassadeur.</p>
+            <h1 className="text-2xl font-display font-bold mb-1">Connexion ambassadeur</h1>
+            <p className="text-sm text-muted-foreground mb-6">Accédez à votre espace VSM.</p>
 
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Email</label>
-                <input
-                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  data-testid="login-email-input"
-                  placeholder="vous@email.com"
-                  className="w-full bg-input border border-border rounded-sm px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
-                />
+                <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
+                  Email, téléphone ou badge VSM
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    required value={identifier} onChange={(e) => setIdentifier(e.target.value)}
+                    data-testid="login-identifier-input"
+                    placeholder="vous@email.com / +243... / VSM-XXXX"
+                    autoComplete="username"
+                    className="w-full bg-input border border-border rounded-sm pl-9 pr-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Mot de passe</label>
@@ -59,6 +86,7 @@ export default function Login() {
                   <input
                     type={showPwd ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)}
                     data-testid="login-password-input"
+                    autoComplete="current-password"
                     className="w-full bg-input border border-border rounded-sm px-3 py-2.5 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
                   />
                   <button type="button" onClick={() => setShowPwd((s) => !s)} data-testid="toggle-password-visibility"

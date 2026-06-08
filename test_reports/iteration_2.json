@@ -1,0 +1,60 @@
+{
+  "summary": "Iteration 2 (new features) verified end-to-end. Backend: 21/22 pytest pass against public REACT_APP_BACKEND_URL. Resolve-identifier (email/badge), push public-key, push subscribe (auth + 401), notify-approval (auth + approved-only), and /api/track/:slug all return correct payloads. One real backend bug: GET /api/ambassador/me does NOT include the new `tracking_link` field in its response because the Pydantic `MeResponse` model has no `tracking_link` attribute, so FastAPI silently strips it. Frontend tolerates this (falls back to badge code), so the dashboard still renders /r/VSM-5B63 correctly, but the new contract from the playbook is not honored. Frontend: all listed data-testids present (login-logo IMG, login-identifier-input with new placeholder, login-password-input, login-submit-btn, pending-card, pending-polling-status, promo-codes-card, promo-code-*, copy-promo-code-*, ref-link-display containing /r/VSM-5B63, copy-link-btn, toggle-qr-btn → qr-display, sidebar-logo, mobile-menu-btn, mobile-drawer, m-logout-btn). Login by EMAIL and by BADGE (VSM-5B63) → /dashboard PASS. /r/VSM-5B63 → record click + window.location.replace → https://www.vsmcollection.com/?ref=VSM-5B63 PASS. Pending → auto-redirect to /dashboard within ~10s after service-role PATCH status=approved PASS. Push CTA correctly hidden in headless Chrome (Notification.permission='denied'), which matches the documented condition.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/ambassador/me",
+        "issue": "`tracking_link` field is missing from the JSON response. server.py builds MeResponse(..., tracking_link=tracking_link) but `MeResponse` Pydantic model does not declare `tracking_link`, so FastAPI strips it. The frontend currently masks this by falling back to the badge slug, but the documented API contract from the playbook is broken and the playbook test asserts it.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/resolve-identifier",
+        "issue": "Phone '+243812345678' resolves to test-1780920667@example.com (created earlier by the apply test) instead of the seeded yann.test-...@example.com, because multiple ambassador_applications rows share that phone and the query order returns the most recently created. Recommend filtering to status='approved' first, or matching profiles.phone with priority over applications.phone."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "MobileHeader",
+        "issue": "data-testid='mobile-logo' is attached to an <a> tag wrapping the <img>, not to the image element itself. Task brief specifies it should be an img. Minor — the wrapper still renders the logo and is reachable for tests.",
+        "selector": "[data-testid='mobile-logo']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter2_results.xml"
+  ],
+  "action_items": [
+    "Fix /api/ambassador/me: add `tracking_link: Optional[dict] = None` to the MeResponse Pydantic model in /app/backend/server.py so the field is actually serialized in the response.",
+    "(Optional) In /api/auth/resolve-identifier phone branch, prefer ambassador_applications rows where status='approved' to avoid resolving to unrelated stale applications that share the same phone number.",
+    "(Optional) Move data-testid='mobile-logo' onto the <img> element so the assertion 'tagName === IMG' holds."
+  ],
+  "critical_code_review_comments": [
+    "server.py MeResponse Pydantic model is missing the `tracking_link` field while the route returns it as a kwarg → silently dropped at serialization. Add `tracking_link: Optional[dict] = None`.",
+    "supabase_find_application returns the first approved row when present, which fixes the iteration-1 'flip-to-pending' bug — good. /me also re-prefers approved → good.",
+    "ensure_ambassador_link is called on every /me hit; for performance, consider caching or only running when the link is missing in profile metadata.",
+    "/api/auth/resolve-identifier: badge branch first tries a PostgREST `like.*tail` on a uuid column (which never matches), then falls back to scanning up to 1000 approved applications — works but O(n) per login; consider indexing or storing badge_code as a real column.",
+    "push subscriptions stored as JSON in `settings` table key 'push_sub_<user>_<hash>' — acceptable workaround for absent DDL access; document the cleanup path on 404/410 (already implemented in send_push)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter2.py"
+  ],
+  "success_rate": {
+    "backend": "95% (21/22) — single failure is the missing tracking_link field on /me",
+    "frontend": "~98% — every required data-testid present, every login method works, /r/:slug redirect works, pending auto-redirect works on real polling"
+  },
+  "test_credentials": "Approved: yann.test-1780920203@example.com / TestPass123! (id=24). Pending (reset to pending after testing): pendtest-1780925153@example.com / TestPass123! (application_id=33).",
+  "seed_data_creation": "No new seed data created. Toggled application_id=33 to approved, then reset back to pending. Inserted one push_subscription row into `settings` (key push_sub_78dcfb4a..._<hash>) — benign, can be cleaned by deleting rows from settings where description='push_subscription'.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Two pytest files now exist: /app/backend/tests/backend_test.py (iteration 1) and /app/backend/tests/test_iter2.py (iteration 2). Run both with: `pytest backend/tests/ -v --junitxml=/app/test_reports/pytest/results.xml`. The only failing assertion is `tracking_link in /me response` — it will pass once MeResponse model declares the field. Pending test user (application_id=33) is intentionally left in 'pending' status; flip with PATCH /rest/v1/ambassador_applications?id=eq.33 body={status:approved} to test the auto-redirect, then reset back.",
+  "rca of the issue": "RCA — `tracking_link` missing from /api/ambassador/me: Step 1 — server.py defines `class MeResponse(BaseModel)` with fields user_id, email, profile, application, promo_codes (no tracking_link). Step 2 — `get_me` returns `MeResponse(user_id=..., email=..., ..., promo_codes=promos, tracking_link=tracking_link)`. Step 3 — Pydantic accepts the extra kwarg silently (default behavior) but, because the field is not declared, it is NOT serialized when FastAPI uses `response_model=MeResponse`. Step 4 — Frontend Dashboard reads `trackingLink?.slug` via useAuth's loadUserData which fetches /me — it receives undefined for tracking_link and falls back to the badge code, so the UI still works. Mitigation: add `tracking_link: Optional[dict] = None` to MeResponse. Verified by curl: response keys are exactly {user_id, email, profile, application, promo_codes} with no tracking_link."
+}

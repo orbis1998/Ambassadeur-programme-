@@ -1,7 +1,9 @@
+/* eslint-disable react/no-unescaped-entities */
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { usePushSubscription } from '@/lib/usePushSubscription';
 import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
   fetchCommissionRate, CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
@@ -9,23 +11,46 @@ import {
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
   ArrowUpRight, Award, Sparkles, Trophy, Medal, Crown, Flame, ExternalLink, QrCode as QrIcon,
+  Bell, BellRing, Tag, Percent,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const ICONS = { sparkles: Sparkles, trophy: Trophy, medal: Medal, crown: Crown, flame: Flame };
 
 export default function Dashboard() {
-  const { user, profile, application } = useAuth();
+  const { user, profile, application, promoCodes, trackingLink } = useAuth();
+  const push = usePushSubscription();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [commissionRate, setRate] = useState(10);
   const [recent, setRecent] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(null);
   const [showQR, setShowQR] = useState(false);
 
   const badge = ambassadorBadgeCode(user?.id);
-  const refLink = buildAmbassadorLink(badge);
+  const slug = trackingLink?.slug || badge;
+  const refLink = buildAmbassadorLink(slug);
+
+  // Fire approval-arrival push once per session
+  useEffect(() => {
+    if (!user?.id || application?.status !== 'approved') return;
+    const key = `vsm-approval-notified-${user.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ambassador/notify-approval`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (_e) { /* ignore */ }
+    })();
+  }, [user?.id, application?.status]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -118,7 +143,7 @@ export default function Dashboard() {
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-7xl mx-auto animate-fade-in">
       {/* Welcome header */}
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 animate-fade-up">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 animate-fade-up">
         <div>
           <div className="text-xs uppercase tracking-[0.3em] text-primary mb-2">Bienvenue</div>
           <h1 className="text-3xl sm:text-4xl font-display font-bold leading-tight" data-testid="dashboard-greeting">
@@ -141,6 +166,26 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {/* Notifications CTA */}
+      {push.supported && !push.subscribed && push.permission !== 'denied' && (
+        <div className="vsm-card p-4 mb-6 flex items-center gap-3 border-primary/40 bg-primary/5 animate-fade-up" data-testid="push-cta">
+          <BellRing className="w-5 h-5 text-primary flex-shrink-0" />
+          <div className="flex-1 text-sm">
+            <div className="font-semibold">Activez les notifications</div>
+            <div className="text-xs text-muted-foreground">Soyez alerté immédiatement lors d'une vente, d'un retrait validé ou d'un nouveau challenge.</div>
+          </div>
+          <button onClick={push.subscribe} disabled={push.busy} data-testid="push-enable-btn"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50">
+            {push.busy ? '...' : 'Activer'}
+          </button>
+        </div>
+      )}
+      {push.subscribed && (
+        <div className="mb-6 flex items-center gap-2 text-xs text-emerald-400" data-testid="push-active">
+          <Bell className="w-3.5 h-3.5" /> Notifications activées
+        </div>
+      )}
 
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
@@ -210,6 +255,47 @@ export default function Dashboard() {
           <div className="mt-5 flex flex-col items-center gap-3 py-5 border-t border-border" data-testid="qr-display">
             <div className="p-4 bg-white rounded-sm"><QRCodeSVG value={refLink} size={160} bgColor="#ffffff" fgColor="#0a0a0a" /></div>
             <p className="text-xs text-muted-foreground">Partagez ce QR code en physique ou en ligne</p>
+          </div>
+        )}
+      </section>
+
+      {/* Promo codes */}
+      <section className="vsm-card p-5 sm:p-6 mb-8 animate-fade-up" data-testid="promo-codes-card">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Codes promo</div>
+            <h2 className="font-display text-xl font-bold mt-1 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-primary" /> Mes codes ambassadeur
+            </h2>
+          </div>
+          <span className="text-xs text-muted-foreground">{promoCodes?.length || 0} code{(promoCodes?.length || 0) > 1 ? 's' : ''}</span>
+        </div>
+        {(!promoCodes || promoCodes.length === 0) ? (
+          <div className="text-center py-6 text-sm text-muted-foreground border border-dashed border-border rounded-sm" data-testid="promo-empty">
+            Aucun code promo encore. L'admin VSM peut en créer un pour vous depuis le site officiel.
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {promoCodes.filter((p) => p.active).map((p) => (
+              <div key={p.id} className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 to-transparent p-4 rounded-sm" data-testid={`promo-code-${p.id}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-primary font-bold flex items-center gap-1">
+                    <Percent className="w-3 h-3" /> {p.discount_value}% de remise
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(p.code); setCopiedCode(p.id); setTimeout(() => setCopiedCode(null), 1800); } catch (_e) { /* ignore */ }
+                    }}
+                    data-testid={`copy-promo-code-${p.id}`}
+                    className="text-xs flex items-center gap-1 px-2 py-1 border border-border rounded-sm hover:border-primary/60">
+                    {copiedCode === p.id ? <><Check className="w-3 h-3 text-primary" /> Copié</> : <><Copy className="w-3 h-3" /> Copier</>}
+                  </button>
+                </div>
+                <div className="font-display text-2xl font-bold tracking-widest text-primary">{p.code}</div>
+                {p.description && <div className="text-xs text-muted-foreground mt-1">{p.description}</div>}
+                <div className="text-[10px] text-muted-foreground mt-2">Utilisations : {p.usage_count || 0}{p.max_usage ? ` / ${p.max_usage}` : ''}</div>
+              </div>
+            ))}
           </div>
         )}
       </section>
