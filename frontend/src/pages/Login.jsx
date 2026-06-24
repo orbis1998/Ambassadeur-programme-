@@ -35,26 +35,56 @@ export default function Login() {
   const resolveEmail = async (raw) => {
     const v = raw.trim();
     if (v.includes('@')) return v.toLowerCase();
+
     const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-    if (!BACKEND_URL) throw new Error('Backend indisponible — utilisez votre email.');
-    try {
-      const r = await fetchWithTimeout(`${BACKEND_URL}/api/auth/resolve-identifier`, {
-        method: 'POST',
+    const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
+
+    const endpoints = [];
+    if (BACKEND_URL) {
+      endpoints.push({
+        url: `${BACKEND_URL.replace(/\/$/, '')}/api/auth/resolve-identifier`,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: v }),
       });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.detail || 'Identifiant introuvable');
-      }
-      const { email } = await r.json();
-      return email;
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        throw new Error('Serveur lent ou injoignable — réessayez avec votre email.');
-      }
-      throw err;
     }
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      endpoints.push({
+        url: `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/resolve-identifier`,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      });
+    }
+
+    if (!endpoints.length) {
+      throw new Error('Backend indisponible — utilisez votre email.');
+    }
+
+    let lastError = null;
+    for (const { url, headers } of endpoints) {
+      try {
+        const r = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ identifier: v }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(d.detail || 'Identifiant introuvable');
+        }
+        const { email } = await r.json();
+        return email;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          throw new Error('Serveur lent ou injoignable — réessayez avec votre email.');
+        }
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('Identifiant introuvable');
   };
 
   const submit = async (e) => {

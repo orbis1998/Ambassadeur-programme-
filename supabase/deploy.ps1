@@ -33,6 +33,9 @@ npx supabase functions deploy send-push --project-ref $ProjectRef --no-verify-jw
 Write-Host "==> Deploying push-subscribe..."
 npx supabase functions deploy push-subscribe --project-ref $ProjectRef
 
+Write-Host "==> Deploying resolve-identifier..."
+npx supabase functions deploy resolve-identifier --project-ref $ProjectRef --no-verify-jwt
+
 Write-Host "==> Applying DB webhook SQL..."
 Push-Location (Join-Path $Root "backend")
 & (Join-Path $Root "backend\.venv\Scripts\python.exe") scripts/deploy_edge_push.py
