@@ -18,7 +18,7 @@ import { BRAND_LOGO } from '@/constants/branding';
 function Splash() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black grain" data-testid="splash">
-      <img src={BRAND_LOGO} alt="VSM Ambassador Program" className="w-44 max-w-[70vw] animate-fade-up" />
+      <img src={BRAND_LOGO} alt="VSM Ambassador Program" className="w-44 max-w-[70vw]" />
     </div>
   );
 }

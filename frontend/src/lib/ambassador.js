@@ -1,7 +1,5 @@
 import { supabase, SITE_URL } from './supabase';
 
-const TRACKING_BASE = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '') + '/r';
-
 // Default commission rate (in %) — fallback if settings table empty.
 export const DEFAULT_COMMISSION_RATE = 10;
 
@@ -46,13 +44,12 @@ export function ambassadorBadgeCode(profileId) {
 
 export function buildAmbassadorLink(slug) {
   const code = slug || 'VSM';
-  return `${TRACKING_BASE}/${encodeURIComponent(code)}`;
+  const base = (SITE_URL || 'https://www.vsmcollection.com').replace(/\/$/, '');
+  return `${base}/?ref=${encodeURIComponent(code)}`;
 }
 
 export function buildSiteRefLink(slug) {
-  // Direct vsmcollection.com link (without tracking via PWA backend)
-  const code = slug || 'VSM';
-  return `${SITE_URL}/?ref=${encodeURIComponent(code)}`;
+  return buildAmbassadorLink(slug);
 }
 
 // Fetch commission rate (% as integer or float). Falls back to DEFAULT_COMMISSION_RATE.

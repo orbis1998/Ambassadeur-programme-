@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
   const [application, setApplication] = useState(null);
   const [meExtras, setMeExtras] = useState({ promo_codes: [], tracking_link: null });
   const [loading, setLoading] = useState(true);
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
 
   const loadUserData = useCallback(async (userId, accessToken) => {
     if (!userId) {
@@ -28,6 +29,9 @@ export function AuthProvider({ children }) {
       setMeExtras({ promo_codes: [], tracking_link: null });
       return null;
     }
+
+    setUserDataLoaded(false);
+
     const token = accessToken || (await supabase.auth.getSession()).data.session?.access_token;
 
     const applyMe = (data) => {
@@ -88,15 +92,19 @@ export function AuthProvider({ children }) {
         setSession(initialSession);
         if (initialSession?.user) {
           await loadUserData(initialSession.user.id, initialSession.access_token);
+        } else {
+          setUserDataLoaded(true);
         }
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setUserDataLoaded(true);
+          setLoading(false);
+        }
       }
     };
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      // INITIAL_SESSION is handled by getSession() above — skip to avoid double-load / stuck splash
       if (event === 'INITIAL_SESSION') return;
 
       if (!mounted) return;
@@ -104,7 +112,15 @@ export function AuthProvider({ children }) {
 
       if (newSession?.user) {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          await loadUserData(newSession.user.id, newSession.access_token);
+          setLoading(true);
+          try {
+            await loadUserData(newSession.user.id, newSession.access_token);
+          } finally {
+            if (mounted) {
+              setUserDataLoaded(true);
+              setLoading(false);
+            }
+          }
         }
         return;
       }
@@ -113,6 +129,7 @@ export function AuthProvider({ children }) {
         setProfile(null);
         setApplication(null);
         setMeExtras({ promo_codes: [], tracking_link: null });
+        setUserDataLoaded(true);
         if (mounted) setLoading(false);
       }
     });
@@ -125,18 +142,33 @@ export function AuthProvider({ children }) {
 
   const refresh = useCallback(async (overrideSession) => {
     const s = overrideSession || session;
-    if (s?.user) return await loadUserData(s.user.id, s.access_token);
+    if (s?.user) {
+      setUserDataLoaded(false);
+      try {
+        return await loadUserData(s.user.id, s.access_token);
+      } finally {
+        setUserDataLoaded(true);
+      }
+    }
     return null;
   }, [session, loadUserData]);
 
   const signIn = async (email, password) => {
-    const result = await supabase.auth.signInWithPassword({ email, password });
-    if (!result.error && result.data?.session) {
-      setSession(result.data.session);
-      const me = await loadUserData(result.data.session.user.id, result.data.session.access_token);
-      return { ...result, me };
+    setLoading(true);
+    setUserDataLoaded(false);
+    try {
+      const result = await supabase.auth.signInWithPassword({ email, password });
+      if (!result.error && result.data?.session) {
+        setSession(result.data.session);
+        const me = await loadUserData(result.data.session.user.id, result.data.session.access_token);
+        setUserDataLoaded(true);
+        return { ...result, me };
+      }
+      setUserDataLoaded(true);
+      return result;
+    } finally {
+      setLoading(false);
     }
-    return result;
   };
 
   const signUp = async (email, password, metadata = {}) => {
@@ -144,6 +176,8 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => { await supabase.auth.signOut(); };
+
+  const authLoading = loading || (session?.user && !userDataLoaded);
 
   const value = {
     session,
@@ -155,7 +189,7 @@ export function AuthProvider({ children }) {
     isApproved: (application?.status || '').toLowerCase() === 'approved',
     isPending: (application?.status || '').toLowerCase() === 'pending',
     isRejected: (application?.status || '').toLowerCase() === 'rejected',
-    loading,
+    loading: authLoading,
     signIn, signUp, signOut, refresh,
   };
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

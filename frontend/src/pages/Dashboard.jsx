@@ -11,7 +11,7 @@ import {
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
   ArrowUpRight, Award, Sparkles, Trophy, Medal, Crown, Flame, ExternalLink, QrCode as QrIcon,
-  BellRing, Tag, Percent,
+  Bell, BellRing, Tag, Percent,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -168,7 +168,13 @@ export default function Dashboard() {
           </button>
         </div>
       )}
-      {/* push CTA only when not yet subscribed — no "activé" banner */}
+      {push.subscribed && (
+        <div className="mb-6 flex items-center gap-2 text-xs text-emerald-400" data-testid="push-active">
+          <Bell className="w-3.5 h-3.5" /> Notifications activées
+        </div>
+      )}
+
+      {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <StatCard icon={ShoppingCart} label="Ventes totales" value={loading ? '—' : stats.confirmedSales} sub={loading ? '' : `${stats.pendingSales} en attente`} testid="stat-sales" delay="stagger-1" />
         <StatCard icon={TrendingUp} label="CA généré" value={loading ? '—' : formatFC(stats.totalRevenue)} sub={`${commissionRate}% commission`} testid="stat-revenue" delay="stagger-2" />
@@ -257,7 +263,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
-            {promoCodes.filter((p) => p.active).map((p) => (
+            {promoCodes.filter((p) => p.active !== false).map((p) => (
               <div key={p.id} className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 to-transparent p-4 rounded-sm" data-testid={`promo-code-${p.id}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[10px] uppercase tracking-wider text-primary font-bold flex items-center gap-1">
