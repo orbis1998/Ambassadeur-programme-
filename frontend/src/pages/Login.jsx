@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabaseConfigured } from '@/lib/supabase';
 import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
 import { BRAND } from '@/constants/branding';
 
@@ -59,7 +60,10 @@ export default function Login() {
     }
 
     if (!endpoints.length) {
-      throw new Error('Backend indisponible — utilisez votre email.');
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        throw new Error('Supabase non configuré — ajoutez REACT_APP_SUPABASE_URL et REACT_APP_SUPABASE_ANON_KEY sur Vercel.');
+      }
+      throw new Error('Service de connexion indisponible — utilisez votre email.');
     }
 
     let lastError = null;
@@ -90,6 +94,10 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!supabaseConfigured) {
+      setError('Supabase non configuré — ajoutez REACT_APP_SUPABASE_URL et REACT_APP_SUPABASE_ANON_KEY sur Vercel, puis redeploy.');
+      return;
+    }
     setLoading(true);
     try {
       const email = await resolveEmail(identifier);
@@ -112,7 +120,13 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8 animate-fade-up">
             <Link to="/" data-testid="brand-home-link" className="inline-block">
-              <img src={BRAND.logo} alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
+              <img
+                src={BRAND.logo}
+                alt="VSM Ambassador Program"
+                data-testid="login-logo"
+                className="w-44 mx-auto"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
             </Link>
           </div>
 

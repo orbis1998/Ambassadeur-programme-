@@ -20,7 +20,12 @@ import '@/App.css';
 function Splash() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black grain" data-testid="splash">
-      <img src={BRAND.logo} alt="VSM Ambassador Program" className="w-44 max-w-[70vw] animate-fade-in" />
+      <img
+        src={BRAND.logo}
+        alt="VSM Ambassador Program"
+        className="w-44 max-w-[70vw] animate-fade-in"
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
     </div>
   );
 }

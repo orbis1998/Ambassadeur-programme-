@@ -3,13 +3,19 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storageKey: 'vsm-ambassador-auth',
-  },
-});
+export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+export const supabase = createClient(
+  SUPABASE_URL || 'https://placeholder.supabase.co',
+  SUPABASE_ANON_KEY || 'placeholder',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: 'vsm-ambassador-auth',
+    },
+  }
+);
 
 export const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://www.vsmcollection.com';

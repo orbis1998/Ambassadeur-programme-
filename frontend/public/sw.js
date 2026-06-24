@@ -1,13 +1,6 @@
 // VSM Ambassador PWA — service worker with Web Push + offline shell
-const CACHE = 'vsm-amb-v4';
-const SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icons/logo-original.png',
-  '/icons/icon-192.jpeg',
-  '/icons/icon-512.jpeg',
-];
+const CACHE = 'vsm-amb-v5';
+const SHELL = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
@@ -58,8 +51,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'VSM Ambassador';
   const options = {
     body: data.body || '',
-    icon: data.icon || '/icons/icon-192.jpeg',
-    badge: '/icons/icon-192.jpeg',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
     data: { url: data.url || '/dashboard' },
     vibrate: [120, 60, 120],
     tag: data.tag || 'vsm-amb',
