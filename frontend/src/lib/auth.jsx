@@ -2,6 +2,17 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { supabase } from './supabase';
 
 const AuthCtx = createContext(null);
+const FETCH_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -14,62 +25,92 @@ export function AuthProvider({ children }) {
     if (!userId) {
       setProfile(null);
       setApplication(null);
+      setMeExtras({ promo_codes: [], tracking_link: null });
       return null;
     }
     try {
       const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
       const token = accessToken || (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`${BACKEND_URL}/api/ambassador/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data.profile || null);
-        setApplication(data.application || null);
-        setMeExtras({ promo_codes: data.promo_codes || [], tracking_link: data.tracking_link || null });
-        return data;
+      if (BACKEND_URL && token) {
+        const res = await fetchWithTimeout(`${BACKEND_URL}/api/ambassador/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data.profile || null);
+          setApplication(data.application || null);
+          setMeExtras({ promo_codes: data.promo_codes || [], tracking_link: data.tracking_link || null });
+          return data;
+        }
       }
-    } catch (_e) { /* fallthrough */ }
-    const [{ data: p }, { data: app }] = await Promise.all([
+    } catch (_e) {
+      /* backend unavailable or timeout — fall back to Supabase direct */
+    }
+    const [{ data: p }, { data: apps }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('ambassador_applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('ambassador_applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
     ]);
+    const rows = apps || [];
+    const approved = rows.find((x) => (x.status || '').toLowerCase() === 'approved');
+    const app = approved || rows[0] || null;
     setProfile(p || null);
-    setApplication(app || null);
+    setApplication(app);
+    setMeExtras({ promo_codes: [], tracking_link: null });
     return { profile: p, application: app };
   }, []);
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
+
+    const init = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(initialSession);
+        if (initialSession?.user) {
+          await loadUserData(initialSession.user.id, initialSession.access_token);
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      // INITIAL_SESSION is handled by getSession() above — skip to avoid double-load / stuck splash
+      if (event === 'INITIAL_SESSION') return;
+
       if (!mounted) return;
-      setSession(session);
-      if (session?.user) {
-        loadUserData(session.user.id, session.access_token).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
+      setSession(newSession);
+
+      if (newSession?.user) {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          setLoading(true);
+          try {
+            await loadUserData(newSession.user.id, newSession.access_token);
+          } finally {
+            if (mounted) setLoading(false);
+          }
+        }
+        return;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        setApplication(null);
+        setMeExtras({ promo_codes: [], tracking_link: null });
+        if (mounted) setLoading(false);
       }
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      if (newSession?.user) {
-        setLoading(true);
-        await loadUserData(newSession.user.id, newSession.access_token);
-        setLoading(false);
-      } else {
-        setProfile(null);
-        setApplication(null);
-      }
-    });
     return () => {
       mounted = false;
-      subscription.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, [loadUserData]);
 
   const refresh = useCallback(async () => {
-    if (session?.user) return await loadUserData(session.user.id);
+    if (session?.user) return await loadUserData(session.user.id, session.access_token);
     return null;
   }, [session, loadUserData]);
 
@@ -90,9 +131,9 @@ export function AuthProvider({ children }) {
     application,
     promoCodes: meExtras.promo_codes,
     trackingLink: meExtras.tracking_link,
-    isApproved: application?.status === 'approved',
-    isPending: application?.status === 'pending',
-    isRejected: application?.status === 'rejected',
+    isApproved: (application?.status || '').toLowerCase() === 'approved',
+    isPending: (application?.status || '').toLowerCase() === 'pending',
+    isRejected: (application?.status || '').toLowerCase() === 'rejected',
     loading,
     signIn, signUp, signOut, refresh,
   };

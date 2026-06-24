@@ -1,0 +1,5 @@
+# VSM Ambassador — Supabase project config
+project_id = "ehmgjgrekjoaohnnlfmw"
+
+[functions.send-push]
+verify_jwt = false

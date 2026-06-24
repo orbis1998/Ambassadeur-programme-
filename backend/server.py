@@ -43,6 +43,7 @@ VAPID_SUBJECT = os.environ.get('VAPID_SUBJECT', 'mailto:[email protected]')
 SITE_URL = os.environ.get('SITE_URL', 'https://www.vsmcollection.com')
 WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
 PUSH_POLL_INTERVAL = float(os.environ.get('PUSH_POLL_INTERVAL', '2'))
+PUSH_WORKER_ENABLED = os.environ.get('PUSH_WORKER_ENABLED', 'false').lower() in ('1', 'true', 'yes')
 
 app = FastAPI(title="VSM Ambassador API")
 api_router = APIRouter(prefix="/api")
@@ -638,7 +639,11 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def _start_push_outbox_worker() -> None:
-    asyncio.create_task(push_outbox_worker())
+    if PUSH_WORKER_ENABLED:
+        asyncio.create_task(push_outbox_worker())
+        logger.info("Push outbox worker enabled (legacy mode)")
+    else:
+        logger.info("Push outbox worker disabled — using Supabase Edge Function send-push")
 
 app.add_middleware(
     CORSMiddleware,
