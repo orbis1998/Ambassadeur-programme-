@@ -27,15 +27,11 @@ function Splash() {
 }
 
 function PublicOnly({ children }) {
-  const { user, loading, isApproved, isPending, isRejected } = useAuth();
-  const location = useLocation();
+  const { user, loading, isPending, isRejected } = useAuth();
   if (loading) return <Splash />;
   if (user) {
-    if (isApproved) return <Navigate to="/dashboard" replace />;
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    // Toujours afficher /login (session résiduelle, changement de compte)
-    if (location.pathname === '/login') return children;
-    if (location.pathname !== '/apply') return <Navigate to="/apply" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return children;
 }

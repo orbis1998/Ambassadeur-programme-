@@ -28,24 +28,43 @@ export function AuthProvider({ children }) {
       setMeExtras({ promo_codes: [], tracking_link: null });
       return null;
     }
+    const token = accessToken || (await supabase.auth.getSession()).data.session?.access_token;
+
+    const applyMe = (data) => {
+      setProfile(data.profile || null);
+      setApplication(data.application || null);
+      setMeExtras({ promo_codes: data.promo_codes || [], tracking_link: data.tracking_link || null });
+      return data;
+    };
+
     try {
       const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-      const token = accessToken || (await supabase.auth.getSession()).data.session?.access_token;
       if (BACKEND_URL && token) {
         const res = await fetchWithTimeout(`${BACKEND_URL}/api/ambassador/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const data = await res.json();
-          setProfile(data.profile || null);
-          setApplication(data.application || null);
-          setMeExtras({ promo_codes: data.promo_codes || [], tracking_link: data.tracking_link || null });
-          return data;
-        }
+        if (res.ok) return applyMe(await res.json());
       }
     } catch (_e) {
-      /* backend unavailable or timeout — fall back to Supabase direct */
+      /* fall through */
     }
+
+    try {
+      const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && token) {
+        const res = await fetchWithTimeout(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/ambassador-me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            apikey: SUPABASE_ANON_KEY,
+          },
+        });
+        if (res.ok) return applyMe(await res.json());
+      }
+    } catch (_e) {
+      /* fall through */
+    }
+
     const [{ data: p }, { data: apps }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('ambassador_applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
