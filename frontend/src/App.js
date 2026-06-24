@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { BRAND } from '@/constants/branding';
 import Login from '@/pages/Login';
 import Apply from '@/pages/Apply';
 import Pending from '@/pages/Pending';
@@ -12,28 +13,32 @@ import Notifications from '@/pages/Notifications';
 import Settings from '@/pages/Settings';
 import TrackingRedirect from '@/pages/TrackingRedirect';
 import AppShell from '@/components/layout/AppShell';
+import PwaInstallPrompt from '@/components/PwaInstallPrompt';
+import PwaPushBootstrap from '@/components/PwaPushBootstrap';
 import '@/App.css';
-import { Loader2 } from 'lucide-react';
 
 function Splash() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background grain" data-testid="splash">
-      <div className="text-center">
-        <div className="font-display text-5xl font-bold mb-4">VSM<span className="text-primary">.</span></div>
-        <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-black grain" data-testid="splash">
+      <img src={BRAND.logo} alt="VSM Ambassador Program" className="w-44 max-w-[70vw] animate-fade-in" />
     </div>
   );
 }
 
-function PublicOnly({ children }) {
-  const { user, loading, isPending, isRejected } = useAuth();
+function LoginRoute() {
+  const { user, loading, isApproved, isPending, isRejected } = useAuth();
   if (loading) return <Splash />;
-  if (user) {
-    if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    return <Navigate to="/dashboard" replace />;
-  }
-  return children;
+  if (user && isApproved) return <Navigate to="/dashboard" replace />;
+  if (user && (isPending || isRejected)) return <Navigate to="/pending" replace />;
+  return <Login />;
+}
+
+function ApplyRoute() {
+  const { user, loading, isApproved, isPending, isRejected } = useAuth();
+  if (loading) return <Splash />;
+  if (user && isApproved) return <Navigate to="/dashboard" replace />;
+  if (user && (isPending || isRejected)) return <Navigate to="/pending" replace />;
+  return <Apply />;
 }
 
 function RequireAuth({ children, requireApproved = false }) {
@@ -53,8 +58,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/r/:slug" element={<TrackingRedirect />} />
-      <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
-      <Route path="/apply" element={<Apply />} />
+      <Route path="/login" element={<LoginRoute />} />
+      <Route path="/apply" element={<ApplyRoute />} />
       <Route path="/pending" element={
         <RequireAuth><Pending /></RequireAuth>
       } />
@@ -78,6 +83,8 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <AppRoutes />
+        <PwaInstallPrompt />
+        <PwaPushBootstrap />
       </BrowserRouter>
     </AuthProvider>
   );

@@ -11,7 +11,7 @@ import {
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
   ArrowUpRight, Award, Sparkles, Trophy, Medal, Crown, Flame, ExternalLink, QrCode as QrIcon,
-  Bell, BellRing, Tag, Percent,
+  BellRing, Tag, Percent,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -168,13 +168,7 @@ export default function Dashboard() {
           </button>
         </div>
       )}
-      {push.subscribed && (
-        <div className="mb-6 flex items-center gap-2 text-xs text-emerald-400" data-testid="push-active">
-          <Bell className="w-3.5 h-3.5" /> Notifications activées
-        </div>
-      )}
-
-      {/* Stats */}
+      {/* push CTA only when not yet subscribed — no "activé" banner */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <StatCard icon={ShoppingCart} label="Ventes totales" value={loading ? '—' : stats.confirmedSales} sub={loading ? '' : `${stats.pendingSales} en attente`} testid="stat-sales" delay="stagger-1" />
         <StatCard icon={TrendingUp} label="CA généré" value={loading ? '—' : formatFC(stats.totalRevenue)} sub={`${commissionRate}% commission`} testid="stat-revenue" delay="stagger-2" />

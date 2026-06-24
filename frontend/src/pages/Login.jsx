@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
+import { BRAND } from '@/constants/branding';
 
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -17,8 +18,9 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS)
 
 function routeAfterLogin(application) {
   const status = (application?.status || '').toLowerCase();
+  if (status === 'approved') return '/dashboard';
   if (status === 'pending' || status === 'rejected') return '/pending';
-  return '/dashboard';
+  return '/apply';
 }
 
 export default function Login() {
@@ -110,7 +112,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8 animate-fade-up">
             <Link to="/" data-testid="brand-home-link" className="inline-block">
-              <img src="/icons/logo.png" alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
+              <img src={BRAND.logo} alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
             </Link>
           </div>
 
