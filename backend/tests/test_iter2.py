@@ -12,7 +12,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = (os.environ.get('REACT_APP_BACKEND_URL') or 'https://ambassador-vsm.preview.emergentagent.com').rstrip('/')
+BASE_URL = (os.environ.get('REACT_APP_BACKEND_URL') or 'http://localhost:8001').rstrip('/')
 SUPABASE_URL = "https://ehmgjgrekjoaohnnlfmw.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVobWdqZ3Jla2pvYW9obm5sZm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1MzI5NTAsImV4cCI6MjA4MzEwODk1MH0.2tI0RYA0IVBaIHpsL50RH_GAxu_K8aJDuodvcXSHtGo"
 

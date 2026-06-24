@@ -33,25 +33,6 @@ export default function Dashboard() {
   const slug = trackingLink?.slug || badge;
   const refLink = buildAmbassadorLink(slug);
 
-  // Fire approval-arrival push once per session
-  useEffect(() => {
-    if (!user?.id || application?.status !== 'approved') return;
-    const key = `vsm-approval-notified-${user.id}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (!token) return;
-        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ambassador/notify-approval`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (_e) { /* ignore */ }
-    })();
-  }, [user?.id, application?.status]);
-
   useEffect(() => {
     if (!user?.id) return;
     let active = true;

@@ -1,44 +1,59 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { CONFIRMED_ORDER_STATUSES, formatFC, relativeDate } from '@/lib/ambassador';
 import { Bell, ShoppingBag, Wallet, AlertCircle } from 'lucide-react';
+
+function buildEvents(orders, withdrawals) {
+  const events = [];
+  (orders || []).forEach((o) => {
+    const s = (o.status || '').toLowerCase();
+    if (CONFIRMED_ORDER_STATUSES.includes(s)) {
+      events.push({ id: `o-${o.id}`, kind: 'sale', at: o.created_at, title: 'Nouvelle vente réalisée', desc: `Commande #${o.id} — ${formatFC(o.total_amount)}` });
+    }
+  });
+  (withdrawals || []).forEach((x) => {
+    const s = (x.status || '').toLowerCase();
+    if (['paid', 'payée', 'approved'].includes(s)) {
+      events.push({ id: `w-${x.id}`, kind: 'withdraw', at: x.updated_at || x.created_at, title: 'Retrait validé', desc: `${x.mobile_operator} • ${x.msisdn}` });
+    } else if (['rejected', 'refusée'].includes(s)) {
+      events.push({ id: `w-${x.id}`, kind: 'alert', at: x.updated_at || x.created_at, title: 'Retrait refusé', desc: x.admin_note || 'Voir détails dans l\'historique' });
+    } else {
+      events.push({ id: `w-${x.id}`, kind: 'withdraw', at: x.created_at, title: 'Demande de retrait envoyée', desc: `${x.mobile_operator} • ${x.msisdn}` });
+    }
+  });
+  events.sort((a, b) => new Date(b.at) - new Date(a.at));
+  return events;
+}
 
 export default function Notifications() {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!user?.id) return;
-    (async () => {
-      setLoading(true);
-      const [{ data: orders }, { data: w }] = await Promise.all([
-        supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(10),
-      ]);
-      const events = [];
-      (orders || []).forEach((o) => {
-        const s = (o.status || '').toLowerCase();
-        if (CONFIRMED_ORDER_STATUSES.includes(s)) {
-          events.push({ id: `o-${o.id}`, kind: 'sale', at: o.created_at, title: 'Nouvelle vente réalisée', desc: `Commande #${o.id} — ${formatFC(o.total_amount)}` });
-        }
-      });
-      (w || []).forEach((x) => {
-        const s = (x.status || '').toLowerCase();
-        if (['paid','payée','approved'].includes(s)) {
-          events.push({ id: `w-${x.id}`, kind: 'withdraw', at: x.updated_at || x.created_at, title: 'Retrait validé', desc: `${x.mobile_operator} • ${x.msisdn}` });
-        } else if (['rejected','refusée'].includes(s)) {
-          events.push({ id: `w-${x.id}`, kind: 'alert', at: x.updated_at || x.created_at, title: 'Retrait refusé', desc: x.admin_note || 'Voir détails dans l\'historique' });
-        } else {
-          events.push({ id: `w-${x.id}`, kind: 'withdraw', at: x.created_at, title: 'Demande de retrait envoyée', desc: `${x.mobile_operator} • ${x.msisdn}` });
-        }
-      });
-      events.sort((a, b) => new Date(b.at) - new Date(a.at));
-      setItems(events);
-      setLoading(false);
-    })();
+    setLoading(true);
+    const [{ data: orders }, { data: w }] = await Promise.all([
+      supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(10),
+    ]);
+    setItems(buildEvents(orders, w));
+    setLoading(false);
   }, [user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Realtime refresh when orders or withdrawals change
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    const channel = supabase
+      .channel(`notif-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `ambassador_id=eq.${user.id}` }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ambassador_withdrawal_requests', filter: `ambassador_id=eq.${user.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, load]);
 
   const ICONS = { sale: ShoppingBag, withdraw: Wallet, alert: AlertCircle };
 

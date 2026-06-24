@@ -1,6 +1,14 @@
 // VSM Ambassador PWA — service worker with Web Push + offline shell
-const CACHE = 'vsm-amb-v2';
-const SHELL = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/logo.png'];
+const CACHE = 'vsm-amb-v3';
+const SHELL = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/logo.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
@@ -19,6 +27,15 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/')) return;
+
+  // SPA navigation fallback
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
       const fetchP = fetch(req).then((res) => {
@@ -33,7 +50,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push event handler
 self.addEventListener('push', (event) => {
   let data = {};
   if (event.data) {

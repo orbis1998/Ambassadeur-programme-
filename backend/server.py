@@ -25,6 +25,8 @@ import os
 import json
 import hashlib
 import logging
+import asyncio
+from datetime import datetime, timezone
 from pathlib import Path
 import httpx
 from pywebpush import webpush, WebPushException
@@ -39,6 +41,8 @@ VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
 VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '').replace('\\n', '\n')
 VAPID_SUBJECT = os.environ.get('VAPID_SUBJECT', 'mailto:[email protected]')
 SITE_URL = os.environ.get('SITE_URL', 'https://www.vsmcollection.com')
+WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
+PUSH_POLL_INTERVAL = float(os.environ.get('PUSH_POLL_INTERVAL', '2'))
 
 app = FastAPI(title="VSM Ambassador API")
 api_router = APIRouter(prefix="/api")
@@ -514,6 +518,88 @@ async def notify_approval(background: BackgroundTasks, user=Depends(verify_user_
     return {"ok": True}
 
 
+# ---------- Push outbox (Supabase DB triggers → VAPID) ----------
+class PushWebhookPayload(BaseModel):
+    outbox_id: Optional[int] = None
+    user_id: str
+    title: str
+    body: str
+    url: str = "/dashboard"
+    event_type: str = "generic"
+    payload: Optional[dict] = None
+
+
+async def _mark_outbox(client: httpx.AsyncClient, outbox_id: int, error: Optional[str] = None) -> None:
+    await client.patch(
+        f"{SUPABASE_URL}/rest/v1/push_outbox",
+        headers=SVC_HEADERS,
+        params={"id": f"eq.{outbox_id}"},
+        json={
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+            "error": error,
+        },
+        timeout=10,
+    )
+
+
+async def _process_push_row(row: dict) -> None:
+    user_id = row.get("user_id")
+    if not user_id:
+        return
+    sent = await send_push(
+        user_id,
+        row.get("title") or "VSM Ambassador",
+        row.get("body") or "",
+        row.get("url") or "/dashboard",
+    )
+    outbox_id = row.get("id") or row.get("outbox_id")
+    if outbox_id:
+        async with httpx.AsyncClient() as client:
+            await _mark_outbox(client, int(outbox_id), None if sent else "no_active_subscription")
+
+
+async def _fetch_pending_outbox(client: httpx.AsyncClient, limit: int = 25) -> list:
+    r = await client.get(
+        f"{SUPABASE_URL}/rest/v1/push_outbox",
+        headers=SVC_HEADERS,
+        params={
+            "processed_at": "is.null",
+            "order": "created_at.asc",
+            "limit": str(limit),
+            "select": "id,user_id,title,body,url,event_type",
+        },
+        timeout=15,
+    )
+    if r.status_code != 200:
+        logger.warning("push_outbox fetch failed: %s %s", r.status_code, r.text)
+        return []
+    return r.json() or []
+
+
+async def push_outbox_worker() -> None:
+    await asyncio.sleep(2)
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                rows = await _fetch_pending_outbox(client)
+                for row in rows:
+                    await _process_push_row(row)
+        except Exception as exc:
+            logger.warning("push outbox worker error: %s", exc)
+        await asyncio.sleep(PUSH_POLL_INTERVAL)
+
+
+@api_router.post("/webhooks/push-event")
+async def push_webhook(
+    payload: PushWebhookPayload,
+    x_webhook_secret: str = Header(default="", alias="X-Webhook-Secret"),
+):
+    if not WEBHOOK_SECRET or x_webhook_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+    asyncio.create_task(_process_push_row(payload.model_dump()))
+    return {"ok": True}
+
+
 # ---------- Tracking (frontend hits this then redirects) ----------
 @api_router.get("/track/{slug}")
 async def tracking_record(slug: str, request_referer: Optional[str] = Header(default=None, alias="Referer"), user_agent: Optional[str] = Header(default="", alias="User-Agent")):
@@ -548,6 +634,12 @@ async def tracking_record(slug: str, request_referer: Optional[str] = Header(def
 
 
 app.include_router(api_router)
+
+
+@app.on_event("startup")
+async def _start_push_outbox_worker() -> None:
+    asyncio.create_task(push_outbox_worker())
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

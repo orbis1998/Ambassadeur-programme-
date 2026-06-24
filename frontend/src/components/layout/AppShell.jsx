@@ -29,7 +29,7 @@ export default function AppShell() {
   return (
     <div className="min-h-screen flex bg-background grain text-foreground">
       {/* Sidebar desktop */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card/60 backdrop-blur sticky top-0 h-screen" data-testid="sidebar">
+      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-black/95 backdrop-blur sticky top-0 h-screen" data-testid="sidebar">
         <div className="px-6 py-7 border-b border-border">
           <Link to="/dashboard" className="block" data-testid="logo-link">
             <img src="/icons/logo.png" alt="VSM Ambassador Program" className="w-32" data-testid="sidebar-logo" />
@@ -73,7 +73,7 @@ export default function AppShell() {
       </aside>
 
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-card/85 backdrop-blur border-b border-border">
+      <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-black/95 backdrop-blur border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <Link to="/dashboard" className="block">
             <img src="/icons/logo.png" alt="VSM Ambassador" data-testid="mobile-logo" className="h-9" />

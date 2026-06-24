@@ -123,7 +123,7 @@ export default function Apply() {
 
   return (
     <div className="min-h-screen grain flex flex-col bg-background">
-      <header className="border-b border-border bg-card/60 backdrop-blur sticky top-0 z-20">
+      <header className="border-b border-border bg-black/95 backdrop-blur sticky top-0 z-20">
         <div className="vsm-container py-4 flex items-center justify-between">
           <Link to="/login" className="text-sm flex items-center gap-2 text-muted-foreground hover:text-foreground" data-testid="back-to-login">
             <ArrowLeft className="w-4 h-4" /> Connexion

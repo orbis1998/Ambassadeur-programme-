@@ -1,31 +1,58 @@
 /* eslint-disable react/no-unescaped-entities */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { Clock, XCircle, LogOut } from 'lucide-react';
 
 export default function Pending() {
-  const { application, signOut, refresh } = useAuth();
+  const { application, signOut, refresh, user } = useAuth();
   const navigate = useNavigate();
   const status = application?.status;
   const rejected = status === 'rejected';
   const [pulse, setPulse] = useState(0);
   const intervalRef = useRef(null);
 
-  // Auto-redirect: poll /me every 4s, redirect to /dashboard on approval
+  const goIfApproved = useCallback(async () => {
+    const fresh = await refresh();
+    if (fresh?.application?.status === 'approved') {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      navigate('/dashboard', { replace: true });
+    }
+  }, [refresh, navigate]);
+
+  // Supabase Realtime: instant redirect when admin approves
   useEffect(() => {
-    if (rejected) return;
+    if (rejected || !user?.id) return undefined;
+    const channel = supabase
+      .channel(`pending-app-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'ambassador_applications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if ((payload.new?.status || '').toLowerCase() === 'approved') {
+            navigate('/dashboard', { replace: true });
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [rejected, user?.id, navigate]);
+
+  // Fallback polling every 4s
+  useEffect(() => {
+    if (rejected) return undefined;
     intervalRef.current = setInterval(async () => {
       setPulse((p) => p + 1);
-      const fresh = await refresh();
-      if (fresh?.application?.status === 'approved') {
-        clearInterval(intervalRef.current);
-        // Fire approval push (server side; the app may already be foregrounded)
-        navigate('/dashboard', { replace: true });
-      }
+      await goIfApproved();
     }, 4000);
     return () => intervalRef.current && clearInterval(intervalRef.current);
-  }, [rejected, refresh, navigate]);
+  }, [rejected, goIfApproved]);
 
   const handleLogout = async () => { await signOut(); navigate('/login', { replace: true }); };
 

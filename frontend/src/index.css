@@ -7,23 +7,23 @@
 @layer base {
   :root {
     /* VSM Collection — Premium Streetwear */
-    --background: 0 0% 4%;
+    --background: 0 0% 0%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 6%;
+    --card: 0 0% 3%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 6%;
+    --popover: 0 0% 3%;
     --popover-foreground: 0 0% 98%;
 
     /* VSM Red */
     --primary: 352 84% 49%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 12%;
+    --secondary: 0 0% 8%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 0 0% 15%;
+    --muted: 0 0% 10%;
     --muted-foreground: 0 0% 65%;
 
     --accent: 352 84% 49%;
@@ -32,16 +32,16 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 15%;
+    --border: 0 0% 14%;
+    --input: 0 0% 8%;
     --ring: 352 84% 49%;
 
     --radius: 0.25rem;
 
     --vsm-red: 352 84% 49%;
     --vsm-red-glow: 352 84% 55%;
-    --vsm-black: 0 0% 4%;
-    --vsm-black-soft: 0 0% 8%;
+    --vsm-black: 0 0% 0%;
+    --vsm-black-soft: 0 0% 4%;
     --vsm-white: 0 0% 98%;
     --vsm-gray: 0 0% 45%;
 
@@ -55,14 +55,14 @@
 
 @layer base {
   * { @apply border-border; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; background-color: #000; }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(352 84% 49% / 0.10) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 90% 110%, hsl(352 84% 49% / 0.08) 0%, transparent 60%),
-      hsl(var(--background));
+    background-color: #000;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(352 84% 49% / 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 110%, hsl(352 84% 49% / 0.04) 0%, transparent 60%);
     background-attachment: fixed;
   }
   h1, h2, h3, h4, h5, h6 {
@@ -80,7 +80,7 @@
     color: transparent;
   }
   .vsm-card {
-    @apply relative overflow-hidden rounded-sm border border-border bg-card transition-all duration-300;
+    @apply relative overflow-hidden rounded-sm border border-border bg-black transition-all duration-300;
     box-shadow: 0 10px 40px -10px hsl(0 0% 0% / 0.6);
   }
   .vsm-card:hover { @apply border-primary/50; box-shadow: 0 0 60px hsl(352 84% 49% / 0.18); }
