@@ -3,3 +3,6 @@ project_id = "ehmgjgrekjoaohnnlfmw"
 
 [functions.send-push]
 verify_jwt = false
+
+[functions.push-subscribe]
+verify_jwt = true

@@ -33,7 +33,8 @@ function PublicOnly({ children }) {
   if (user) {
     if (isApproved) return <Navigate to="/dashboard" replace />;
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    // Logged in but no application -> let them apply
+    // Toujours afficher /login (session résiduelle, changement de compte)
+    if (location.pathname === '/login') return children;
     if (location.pathname !== '/apply') return <Navigate to="/apply" replace />;
   }
   return children;

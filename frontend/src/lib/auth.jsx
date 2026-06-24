@@ -85,12 +85,7 @@ export function AuthProvider({ children }) {
 
       if (newSession?.user) {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          setLoading(true);
-          try {
-            await loadUserData(newSession.user.id, newSession.access_token);
-          } finally {
-            if (mounted) setLoading(false);
-          }
+          await loadUserData(newSession.user.id, newSession.access_token);
         }
         return;
       }
@@ -109,13 +104,20 @@ export function AuthProvider({ children }) {
     };
   }, [loadUserData]);
 
-  const refresh = useCallback(async () => {
-    if (session?.user) return await loadUserData(session.user.id, session.access_token);
+  const refresh = useCallback(async (overrideSession) => {
+    const s = overrideSession || session;
+    if (s?.user) return await loadUserData(s.user.id, s.access_token);
     return null;
   }, [session, loadUserData]);
 
   const signIn = async (email, password) => {
-    return await supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    if (!result.error && result.data?.session) {
+      setSession(result.data.session);
+      const me = await loadUserData(result.data.session.user.id, result.data.session.access_token);
+      return { ...result, me };
+    }
+    return result;
   };
 
   const signUp = async (email, password, metadata = {}) => {

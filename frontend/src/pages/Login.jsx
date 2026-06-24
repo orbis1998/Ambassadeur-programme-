@@ -3,8 +3,27 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
 
+const FETCH_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function routeAfterLogin(application) {
+  const status = (application?.status || '').toLowerCase();
+  if (status === 'approved') return '/dashboard';
+  if (status === 'pending' || status === 'rejected') return '/pending';
+  return '/apply';
+}
+
 export default function Login() {
-  const { signIn } = useAuth();
+  const { signIn, signOut, user, isApproved, isPending, isRejected, application } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [identifier, setIdentifier] = useState('');
@@ -17,17 +36,25 @@ export default function Login() {
     const v = raw.trim();
     if (v.includes('@')) return v.toLowerCase();
     const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-    const r = await fetch(`${BACKEND_URL}/api/auth/resolve-identifier`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: v }),
-    });
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      throw new Error(d.detail || 'Identifiant introuvable');
+    if (!BACKEND_URL) throw new Error('Backend indisponible — utilisez votre email.');
+    try {
+      const r = await fetchWithTimeout(`${BACKEND_URL}/api/auth/resolve-identifier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: v }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.detail || 'Identifiant introuvable');
+      }
+      const { email } = await r.json();
+      return email;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Serveur lent ou injoignable — réessayez avec votre email.');
+      }
+      throw err;
     }
-    const { email } = await r.json();
-    return email;
   };
 
   const submit = async (e) => {
@@ -36,16 +63,16 @@ export default function Login() {
     setLoading(true);
     try {
       const email = await resolveEmail(identifier);
-      const { error } = await signIn(email, password);
-      if (error) {
+      const { me, error: signInError } = await signIn(email, password);
+      if (signInError) {
         setError('Identifiants incorrects.');
-        setLoading(false);
         return;
       }
-      setLoading(false);
-      navigate(location.state?.from || '/dashboard', { replace: true });
+      const dest = routeAfterLogin(me?.application);
+      navigate(dest, { replace: true });
     } catch (err) {
-      setError(err.message || 'Identifiants incorrects.');
+      setError(err.message || 'Connexion impossible.');
+    } finally {
       setLoading(false);
     }
   };
@@ -61,6 +88,34 @@ export default function Login() {
           </div>
 
           <div className="vsm-card p-7 sm:p-8 animate-fade-up stagger-1" data-testid="login-card">
+            {user && (
+              <div className="mb-5 p-3 rounded-sm border border-primary/30 bg-primary/5 text-sm" data-testid="login-existing-session">
+                <p className="text-muted-foreground mb-2">
+                  Session active : <span className="text-foreground font-medium">{user.email}</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {isApproved && (
+                    <Link to="/dashboard" className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase">
+                      Dashboard
+                    </Link>
+                  )}
+                  {(isPending || isRejected) && (
+                    <Link to="/pending" className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase">
+                      Statut candidature
+                    </Link>
+                  )}
+                  {!application && !isApproved && !isPending && !isRejected && (
+                    <Link to="/apply" className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase">
+                      Continuer la candidature
+                    </Link>
+                  )}
+                  <button type="button" onClick={() => signOut()} data-testid="login-signout-btn"
+                    className="px-3 py-1.5 border border-border rounded-sm text-xs font-semibold uppercase hover:border-primary/50">
+                    Autre compte
+                  </button>
+                </div>
+              </div>
+            )}
             <h1 className="text-2xl font-display font-bold mb-1">Connexion ambassadeur</h1>
             <p className="text-sm text-muted-foreground mb-6">Accédez à votre espace VSM.</p>
 

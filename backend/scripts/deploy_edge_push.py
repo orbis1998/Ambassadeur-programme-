@@ -100,7 +100,7 @@ def main() -> None:
 
     print(f"DB webhook -> {edge_url}")
     print(f"WEBHOOK_SECRET saved to backend/.env")
-    print("Set the same secrets on Supabase: Dashboard → Edge Functions → send-push → Secrets")
+    print("Set the same secrets on Supabase: Dashboard -> Edge Functions -> send-push -> Secrets")
 
 
 if __name__ == "__main__":

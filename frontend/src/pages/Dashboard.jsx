@@ -150,14 +150,20 @@ export default function Dashboard() {
 
       {/* Notifications CTA */}
       {push.supported && !push.subscribed && push.permission !== 'denied' && (
-        <div className="vsm-card p-4 mb-6 flex items-center gap-3 border-primary/40 bg-primary/5 animate-fade-up" data-testid="push-cta">
+        <div className="vsm-card p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 border-primary/40 bg-primary/5 animate-fade-up" data-testid="push-cta">
           <BellRing className="w-5 h-5 text-primary flex-shrink-0" />
           <div className="flex-1 text-sm">
             <div className="font-semibold">Activez les notifications</div>
             <div className="text-xs text-muted-foreground">Soyez alerté immédiatement lors d'une vente, d'un retrait validé ou d'un nouveau challenge.</div>
+            {push.error && (
+              <div className="text-xs text-destructive mt-2" data-testid="push-error">{push.error}</div>
+            )}
+            {!push.configured && (
+              <div className="text-xs text-amber-400 mt-2">VAPID non configuré — ajoutez REACT_APP_VAPID_PUBLIC_KEY sur Vercel.</div>
+            )}
           </div>
-          <button onClick={push.subscribe} disabled={push.busy} data-testid="push-enable-btn"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50">
+          <button onClick={push.subscribe} disabled={push.busy || !push.configured} data-testid="push-enable-btn"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50 shrink-0">
             {push.busy ? '...' : 'Activer'}
           </button>
         </div>
