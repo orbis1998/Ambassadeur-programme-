@@ -72,7 +72,7 @@ async function processOutboxRecord(record: Record<string, unknown>) {
   }
 
   const subs = await listPushSubscriptions(userId);
-  const payload = JSON.stringify({ title, body, url, icon: "/icons/icon-192.png" });
+  const payload = JSON.stringify({ title, body, url, icon: "/icons/image_1782342973184.jpeg" });
   let sent = 0;
 
   for (const s of subs) {
