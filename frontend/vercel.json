@@ -2,13 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "build",
-  "installCommand": "npm ci",
-  "framework": null,
-  "rewrites": [
-    {
-      "source": "/((?!static|icons|manifest\\.json|sw\\.js|favicon\\.ico|favicon\\.png|asset-manifest\\.json).*)",
-      "destination": "/index.html"
-    }
+  "installCommand": "npm install",
+  "framework": "create-react-app",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
