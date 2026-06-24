@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { BRAND } from '@/constants/branding';
+import { BRAND_LOGO } from '@/constants/branding';
 
 export default function TrackingRedirect() {
   const { slug } = useParams();
@@ -21,7 +21,7 @@ export default function TrackingRedirect() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground grain" data-testid="tracking-redirect">
       <div className="text-center">
-        <img src={BRAND.logo} alt="VSM" className="w-32 mx-auto mb-6 opacity-70" />
+        <img src={BRAND_LOGO} alt="VSM" className="w-32 mx-auto mb-6 opacity-70" />
         <div className="text-sm uppercase tracking-[0.3em] text-primary mb-2">Redirection en cours</div>
         <div className="font-display text-2xl">VSM Collection</div>
         <div className="text-xs text-muted-foreground mt-2">Vivre avec style.</div>

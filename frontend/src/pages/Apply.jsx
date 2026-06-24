@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { packMotivation } from '@/lib/ambassador';
-import { BRAND } from '@/constants/branding';
+import { BRAND_LOGO } from '@/constants/branding';
 import { ArrowLeft, Loader2, CheckCircle2, Instagram, Facebook, Music2, Sparkles } from 'lucide-react';
 
 const PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'Twitter / X', 'Autre'];
@@ -113,9 +113,9 @@ export default function Apply() {
             Votre candidature est actuellement en cours d'examen par notre équipe. Vous recevrez une notification dès qu'une décision sera prise.
           </p>
           <div className="text-sm uppercase tracking-wider text-primary font-semibold mb-6">— L'équipe VSM Collection</div>
-          <button onClick={() => navigate('/pending')} data-testid="success-go-pending"
+          <button onClick={() => navigate('/dashboard')} data-testid="success-go-dashboard"
             className="bg-primary text-primary-foreground font-semibold uppercase tracking-wider text-sm px-6 py-3 rounded-sm hover:bg-primary/90 transition">
-            Voir le statut de ma candidature
+            Accéder à mon espace
           </button>
         </div>
       </div>
@@ -129,15 +129,17 @@ export default function Apply() {
           <Link to="/login" className="text-sm flex items-center gap-2 text-muted-foreground hover:text-foreground" data-testid="back-to-login">
             <ArrowLeft className="w-4 h-4" /> Connexion
           </Link>
-          <img src={BRAND.logo} alt="VSM Ambassador Program" className="h-9" data-testid="apply-logo" />
+          <img src={BRAND_LOGO} alt="VSM Ambassador Program" className="h-9" data-testid="apply-header-logo" />
           <div className="w-20" />
         </div>
       </header>
 
       <div className="vsm-container py-8 sm:py-12 max-w-3xl">
+        <div className="text-center mb-8 animate-fade-up">
+          <img src={BRAND_LOGO} alt="VSM Ambassador Program" data-testid="apply-logo" className="w-40 mx-auto mb-6" />
+        </div>
         {/* Intro */}
-        <div className="mb-8 animate-fade-up text-center sm:text-left">
-          <img src={BRAND.logo} alt="VSM Ambassador" className="w-36 mx-auto sm:mx-0 mb-6" data-testid="apply-hero-logo" />
+        <div className="mb-8 animate-fade-up">
           <div className="text-xs uppercase tracking-[0.3em] text-primary mb-3 flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5" /> Candidature Programme Ambassadeur
           </div>

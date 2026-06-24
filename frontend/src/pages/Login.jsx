@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { supabaseConfigured } from '@/lib/supabase';
+import { BRAND_LOGO } from '@/constants/branding';
 import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
-import { BRAND } from '@/constants/branding';
 
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -19,9 +18,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS)
 
 function routeAfterLogin(application) {
   const status = (application?.status || '').toLowerCase();
-  if (status === 'approved') return '/dashboard';
   if (status === 'pending' || status === 'rejected') return '/pending';
-  return '/apply';
+  return '/dashboard';
 }
 
 export default function Login() {
@@ -42,12 +40,6 @@ export default function Login() {
     const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
     const endpoints = [];
-    if (BACKEND_URL) {
-      endpoints.push({
-        url: `${BACKEND_URL.replace(/\/$/, '')}/api/auth/resolve-identifier`,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       endpoints.push({
         url: `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/resolve-identifier`,
@@ -58,12 +50,15 @@ export default function Login() {
         },
       });
     }
+    if (BACKEND_URL) {
+      endpoints.push({
+        url: `${BACKEND_URL.replace(/\/$/, '')}/api/auth/resolve-identifier`,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     if (!endpoints.length) {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        throw new Error('Supabase non configuré — ajoutez REACT_APP_SUPABASE_URL et REACT_APP_SUPABASE_ANON_KEY sur Vercel.');
-      }
-      throw new Error('Service de connexion indisponible — utilisez votre email.');
+      throw new Error('Connexion par téléphone ou badge indisponible — utilisez votre adresse email.');
     }
 
     let lastError = null;
@@ -94,10 +89,6 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!supabaseConfigured) {
-      setError('Supabase non configuré — ajoutez REACT_APP_SUPABASE_URL et REACT_APP_SUPABASE_ANON_KEY sur Vercel, puis redeploy.');
-      return;
-    }
     setLoading(true);
     try {
       const email = await resolveEmail(identifier);
@@ -120,13 +111,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8 animate-fade-up">
             <Link to="/" data-testid="brand-home-link" className="inline-block">
-              <img
-                src={BRAND.logo}
-                alt="VSM Ambassador Program"
-                data-testid="login-logo"
-                className="w-44 mx-auto"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
+              <img src={BRAND_LOGO} alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
             </Link>
           </div>
 

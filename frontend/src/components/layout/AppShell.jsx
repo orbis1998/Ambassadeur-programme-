@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { BRAND } from '@/constants/branding';
+import { useAuth } from '@/lib/auth';
+import { BRAND_LOGO } from '@/constants/branding';
 import { LayoutDashboard, Wallet, Image as ImageIcon, Settings as SettingsIcon, Bell, LogOut, Menu, X, Award } from 'lucide-react';
 import { useState } from 'react';
 
@@ -32,7 +33,7 @@ export default function AppShell() {
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-black/95 backdrop-blur sticky top-0 h-screen" data-testid="sidebar">
         <div className="px-6 py-7 border-b border-border">
           <Link to="/dashboard" className="block" data-testid="logo-link">
-            <img src={BRAND.logo} alt="VSM Ambassador Program" className="w-32" data-testid="sidebar-logo" />
+            <img src={BRAND_LOGO} alt="VSM Ambassador Program" className="w-32" data-testid="sidebar-logo" />
           </Link>
         </div>
         <nav className="flex-1 px-3 py-6 space-y-1">
@@ -76,7 +77,7 @@ export default function AppShell() {
       <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-black/95 backdrop-blur border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <Link to="/dashboard" className="block">
-            <img src={BRAND.logo} alt="VSM Ambassador" data-testid="mobile-logo" className="h-9" />
+            <img src={BRAND_LOGO} alt="VSM Ambassador" data-testid="mobile-logo" className="h-9" />
           </Link>
           <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="p-2 rounded-sm hover:bg-secondary">
             <Menu className="w-5 h-5" />
@@ -90,7 +91,7 @@ export default function AppShell() {
           <div className="absolute inset-0 bg-black/70" onClick={() => setMobileOpen(false)} />
           <div className="absolute right-0 top-0 h-full w-72 bg-card border-l border-border p-5 animate-fade-in">
             <div className="flex justify-between items-center mb-6">
-              <img src={BRAND.logo} alt="VSM Ambassador" className="h-9" />
+              <img src={BRAND_LOGO} alt="VSM Ambassador" className="h-9" />
               <button onClick={() => setMobileOpen(false)} data-testid="mobile-close-btn" className="p-2"><X className="w-5 h-5" /></button>
             </div>
             <nav className="space-y-1">
