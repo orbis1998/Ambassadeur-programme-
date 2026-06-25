@@ -46,13 +46,23 @@ function RequireAuth({ children, requireApproved = false }) {
   return children;
 }
 
+function ApplyRoute() {
+  const { user, loading, isApproved, isPending, isRejected } = useAuth();
+  if (loading) return <Splash />;
+  if (user) {
+    if (isApproved) return <Navigate to="/dashboard" replace />;
+    if (isPending || isRejected) return <Navigate to="/pending" replace />;
+  }
+  return <Apply />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/r/:slug" element={<TrackingRedirect />} />
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
-      <Route path="/apply" element={<Apply />} />
+      <Route path="/apply" element={<ApplyRoute />} />
       <Route path="/pending" element={
         <RequireAuth><Pending /></RequireAuth>
       } />

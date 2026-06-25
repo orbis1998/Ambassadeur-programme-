@@ -41,8 +41,19 @@ export default function Dashboard() {
       if (!active) return;
       setRate(rate);
 
+      const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
+      let ordersQuery = supabase
+        .from('orders')
+        .select('id, total_amount, status, created_at, customer_name, ambassador_id, promo_code_id')
+        .order('created_at', { ascending: false });
+      if (promoIds.length) {
+        ordersQuery = ordersQuery.or(`ambassador_id.eq.${user.id},promo_code_id.in.(${promoIds.join(',')})`);
+      } else {
+        ordersQuery = ordersQuery.eq('ambassador_id', user.id);
+      }
+
       const [{ data: orders, error: oErr }, { data: links, error: lErr }, { data: wRes, error: wErr }] = await Promise.all([
-        supabase.from('orders').select('id, total_amount, status, created_at, customer_name').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
+        ordersQuery,
         supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
         supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
       ]);
@@ -102,15 +113,17 @@ export default function Dashboard() {
         },
         isTopMonthly: false,
       });
-      setRecent(confirmed.slice(0, 10).map((o) => ({
-        ...o,
-        commission: Number(o.total_amount || 0) * (rate / 100),
-      })));
+      setRecent(
+        ordersArr.slice(0, 15).map((o) => ({
+          ...o,
+          commission: isConfirmedStatus(o.status) ? Number(o.total_amount || 0) * (rate / 100) : 0,
+        })),
+      );
       setWithdrawals(wRes || []);
       setLoading(false);
     })();
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, promoCodes]);
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(refLink); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (_e) { /* clipboard unavailable */ }
@@ -424,7 +437,9 @@ function StatusPill({ status }) {
     'paid': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
     'payée': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
     'payee': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
-    'pending': 'bg-amber-500/15 text-amber-400 border-amber-500/40',
+    'traitée': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
+    'traitee': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
+    'nouvelle': 'bg-amber-500/15 text-amber-400 border-amber-500/40',
     'en_attente': 'bg-amber-500/15 text-amber-400 border-amber-500/40',
     'en attente': 'bg-amber-500/15 text-amber-400 border-amber-500/40',
     'approved': 'bg-amber-500/15 text-amber-400 border-amber-500/40',

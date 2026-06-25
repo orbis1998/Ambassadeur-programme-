@@ -26,7 +26,12 @@ export function normalizeOrderStatus(status) {
 }
 
 export function isConfirmedStatus(status) {
-  return CONFIRMED_ORDER_STATUSES.includes(normalizeOrderStatus(status));
+  const s = normalizeOrderStatus(status);
+  if (CONFIRMED_ORDER_STATUSES.includes(s)) return true;
+  // Statuts VSM boutique (traitée, confirmée, livrée…)
+  if (s.startsWith('trait')) return true;
+  if (s.includes('confirm') || s.includes('livr') || s.includes('deliver') || s.includes('pay')) return true;
+  return false;
 }
 
 export function isPendingStatus(status) {

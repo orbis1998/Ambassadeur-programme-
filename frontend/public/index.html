@@ -43,6 +43,12 @@
             });
           }
         </script>
+        <script>
+          window.setTimeout(function () {
+            var el = document.getElementById('app-splash');
+            if (el) { el.classList.add('hide'); window.setTimeout(function () { el.remove(); }, 400); }
+          }, 6000);
+        </script>
     </head>
     <body>
         <noscript>Vous devez activer JavaScript pour utiliser cette application.</noscript>

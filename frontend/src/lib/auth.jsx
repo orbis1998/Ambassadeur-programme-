@@ -2,6 +2,14 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { supabase } from './supabase';
 
 const AuthCtx = createContext(null);
+const SESSION_TIMEOUT_MS = 8000;
+
+async function getSessionWithTimeout() {
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('session_timeout')), SESSION_TIMEOUT_MS);
+  });
+  return Promise.race([supabase.auth.getSession(), timeout]);
+}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -54,7 +62,7 @@ export function AuthProvider({ children }) {
 
     const init = async () => {
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession } } = await getSessionWithTimeout();
         if (!mounted) return;
         setSession(initialSession);
         if (initialSession?.user) {
@@ -62,6 +70,8 @@ export function AuthProvider({ children }) {
         } else {
           setUserDataLoaded(true);
         }
+      } catch (_e) {
+        if (mounted) setUserDataLoaded(true);
       } finally {
         if (mounted) {
           setUserDataLoaded(true);
