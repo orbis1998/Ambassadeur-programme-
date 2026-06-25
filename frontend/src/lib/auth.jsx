@@ -88,7 +88,11 @@ export function AuthProvider({ children }) {
       setSession(newSession);
 
       if (newSession?.user) {
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        if (event === 'TOKEN_REFRESHED') {
+          loadUserData(newSession.user.id);
+          return;
+        }
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setLoading(true);
           try {
             await loadUserData(newSession.user.id);

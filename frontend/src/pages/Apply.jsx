@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unescaped-entities */
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { packMotivation } from '@/lib/ambassador';
 import { BRAND_LOGO } from '@/constants/branding';
@@ -9,7 +9,7 @@ import { ArrowLeft, Loader2, CheckCircle2, Instagram, Facebook, Music2, Sparkles
 const PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'Twitter / X', 'Autre'];
 
 export default function Apply() {
-  const { signIn, refresh } = useAuth();
+  const { signIn, refresh, signOut, user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -100,6 +100,12 @@ export default function Apply() {
     }
   };
 
+  const goLogin = async (e) => {
+    e.preventDefault();
+    if (user) await signOut();
+    navigate('/login', { replace: true });
+  };
+
   if (success) {
     return (
       <div className="min-h-screen grain flex flex-col items-center justify-center px-4 py-10 bg-background">
@@ -113,7 +119,7 @@ export default function Apply() {
             Votre candidature est actuellement en cours d'examen par notre équipe. Vous recevrez une notification dès qu'une décision sera prise.
           </p>
           <div className="text-sm uppercase tracking-wider text-primary font-semibold mb-6">— L'équipe VSM Collection</div>
-          <button onClick={() => navigate('/dashboard')} data-testid="success-go-dashboard"
+          <button onClick={() => navigate('/pending')} data-testid="success-go-dashboard"
             className="bg-primary text-primary-foreground font-semibold uppercase tracking-wider text-sm px-6 py-3 rounded-sm hover:bg-primary/90 transition">
             Accéder à mon espace
           </button>
@@ -126,9 +132,9 @@ export default function Apply() {
     <div className="min-h-screen grain flex flex-col bg-background">
       <header className="border-b border-border bg-black/95 backdrop-blur sticky top-0 z-20">
         <div className="vsm-container py-4 flex items-center">
-          <Link to="/login" className="text-sm flex items-center gap-2 text-muted-foreground hover:text-foreground" data-testid="back-to-login">
+          <button type="button" onClick={goLogin} className="text-sm flex items-center gap-2 text-muted-foreground hover:text-foreground" data-testid="back-to-login">
             <ArrowLeft className="w-4 h-4" /> Connexion
-          </Link>
+          </button>
         </div>
       </header>
 

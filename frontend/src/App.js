@@ -25,11 +25,12 @@ function Splash() {
 }
 
 function PublicOnly({ children }) {
-  const { user, loading, isPending, isRejected } = useAuth();
+  const { user, loading, isApproved, isPending, isRejected } = useAuth();
   if (loading) return <Splash />;
   if (user) {
+    if (isApproved) return <Navigate to="/dashboard" replace />;
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/apply" replace />;
   }
   return children;
 }
