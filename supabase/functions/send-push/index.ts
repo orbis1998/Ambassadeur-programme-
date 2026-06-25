@@ -57,17 +57,17 @@ async function markOutbox(outboxId: number, error: string | null, sent: number) 
 }
 
 async function processOutboxRecord(record: Record<string, unknown>) {
-  const outboxId = Number(record.id);
+  const outboxId = Number(record.id ?? record.outbox_id ?? 0);
   const userId = String(record.user_id ?? "");
   const title = String(record.title ?? "VSM Ambassador");
   const body = String(record.body ?? "");
   const url = String(record.url ?? "/dashboard");
 
-  if (!userId || !outboxId) {
+  if (!userId) {
     return { ok: false, error: "invalid_record", sent: 0 };
   }
   if (!VAPID_PRIVATE_KEY) {
-    await markOutbox(outboxId, "vapid_not_configured", 0);
+    if (outboxId) await markOutbox(outboxId, "vapid_not_configured", 0);
     return { ok: false, error: "vapid_not_configured", sent: 0 };
   }
 
@@ -88,7 +88,7 @@ async function processOutboxRecord(record: Record<string, unknown>) {
     }
   }
 
-  await markOutbox(outboxId, null, sent);
+  if (outboxId) await markOutbox(outboxId, null, sent);
   return { ok: true, sent };
 }
 

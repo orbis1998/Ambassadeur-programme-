@@ -16,6 +16,7 @@ REPO = ROOT.parent
 load_dotenv(ROOT / ".env")
 
 MIGRATION = Path(__file__).resolve().parent / "migrations" / "002_edge_function_webhook.sql"
+MIGRATION_PROMO = Path(__file__).resolve().parent / "migrations" / "003_promo_notify.sql"
 PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "ehmgjgrekjoaohnnlfmw")
 
 
@@ -76,6 +77,8 @@ def main() -> None:
     conn.autocommit = True
     cur = conn.cursor()
     cur.execute(sql)
+    if MIGRATION_PROMO.exists():
+        cur.execute(MIGRATION_PROMO.read_text(encoding="utf-8"))
     conn.close()
 
     env_path = ROOT / ".env"

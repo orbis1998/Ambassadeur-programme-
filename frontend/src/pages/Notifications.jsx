@@ -1,15 +1,30 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { CONFIRMED_ORDER_STATUSES, formatFC, relativeDate } from '@/lib/ambassador';
-import { Bell, ShoppingBag, Wallet, AlertCircle } from 'lucide-react';
+import { fetchAmbassadorDashboardData, fetchAmbassadorDashboardDirect } from '@/lib/ambassadorData';
+import { CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, formatFC, relativeDate } from '@/lib/ambassador';
+import { Bell, ShoppingBag, Wallet, AlertCircle, Tag } from 'lucide-react';
 
 function buildEvents(orders, withdrawals) {
   const events = [];
   (orders || []).forEach((o) => {
-    const s = (o.status || '').toLowerCase();
+    const s = (o.status || '').toLowerCase().trim();
     if (CONFIRMED_ORDER_STATUSES.includes(s)) {
-      events.push({ id: `o-${o.id}`, kind: 'sale', at: o.created_at, title: 'Nouvelle vente réalisée', desc: `Commande #${o.id} — ${formatFC(o.total_amount)}` });
+      events.push({
+        id: `o-${o.id}`,
+        kind: 'sale',
+        at: o.created_at,
+        title: 'Commande confirmée ✓',
+        desc: `Commande #${o.id} — ${formatFC(o.total_amount)} validée`,
+      });
+    } else if (PENDING_ORDER_STATUSES.includes(s)) {
+      events.push({
+        id: `o-pending-${o.id}`,
+        kind: 'promo',
+        at: o.created_at,
+        title: 'Code promo utilisé',
+        desc: `Commande #${o.id} — ${formatFC(o.total_amount)} en attente de validation`,
+      });
     }
   });
   (withdrawals || []).forEach((x) => {
@@ -34,17 +49,17 @@ export default function Notifications() {
   const load = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
-    const [{ data: orders }, { data: w }] = await Promise.all([
-      supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(20),
-      supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(10),
-    ]);
-    setItems(buildEvents(orders, w));
+    const { data: { session } } = await supabase.auth.getSession();
+    const bundle = await fetchAmbassadorDashboardData(session?.access_token);
+    const source = bundle || await fetchAmbassadorDashboardDirect(user.id);
+    const orders = (source.orders || []).slice(0, 30);
+    const withdrawals = (source.withdrawals || []).slice(0, 10);
+    setItems(buildEvents(orders, withdrawals));
     setLoading(false);
   }, [user?.id]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime refresh when orders or withdrawals change
   useEffect(() => {
     if (!user?.id) return undefined;
     const channel = supabase
@@ -55,13 +70,14 @@ export default function Notifications() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, load]);
 
-  const ICONS = { sale: ShoppingBag, withdraw: Wallet, alert: AlertCircle };
+  const ICONS = { sale: ShoppingBag, withdraw: Wallet, alert: AlertCircle, promo: Tag };
 
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-3xl mx-auto animate-fade-in" data-testid="notifications-page">
       <header className="mb-6 animate-fade-up">
         <div className="text-xs uppercase tracking-[0.3em] text-primary mb-2">Notifications</div>
         <h1 className="text-3xl sm:text-4xl font-display font-bold">Vos dernières activités</h1>
+        <p className="text-sm text-muted-foreground mt-2">Utilisation de votre code promo, commandes validées et retraits.</p>
       </header>
 
       {loading ? (

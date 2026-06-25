@@ -39,6 +39,9 @@ npx supabase functions deploy resolve-identifier --project-ref $ProjectRef --no-
 Write-Host "==> Deploying ambassador-me..."
 npx supabase functions deploy ambassador-me --project-ref $ProjectRef
 
+Write-Host "==> Deploying ambassador-dashboard..."
+npx supabase functions deploy ambassador-dashboard --project-ref $ProjectRef
+
 Write-Host "==> Deploying track-click..."
 npx supabase functions deploy track-click --project-ref $ProjectRef --no-verify-jwt
 

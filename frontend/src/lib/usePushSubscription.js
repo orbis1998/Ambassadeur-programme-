@@ -13,6 +13,19 @@ function urlBase64ToUint8Array(base64String) {
   return arr;
 }
 
+async function ensureServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    throw new Error('Service worker non supporté sur ce navigateur.');
+  }
+  let reg = await navigator.serviceWorker.getRegistration('/');
+  if (!reg) {
+    reg = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+    await reg.update().catch(() => {});
+  }
+  await navigator.serviceWorker.ready;
+  return reg;
+}
+
 async function saveSubscription(token, subscription) {
   const payload = JSON.stringify({ subscription: subscription.toJSON ? subscription.toJSON() : subscription });
 
@@ -27,6 +40,8 @@ async function saveSubscription(token, subscription) {
       body: payload,
     });
     if (edgeRes.ok) return true;
+    const errBody = await edgeRes.text().catch(() => '');
+    throw new Error(errBody || 'Enregistrement push refusé par le serveur.');
   }
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -52,7 +67,7 @@ export function usePushSubscription() {
 
   useEffect(() => {
     if (!supported) return;
-    navigator.serviceWorker.ready
+    ensureServiceWorker()
       .then((reg) => reg.pushManager.getSubscription().then((s) => setSubscribed(!!s)))
       .catch(() => {});
   }, [supported]);
@@ -67,6 +82,10 @@ export function usePushSubscription() {
       setError('Clé VAPID manquante (REACT_APP_VAPID_PUBLIC_KEY).');
       return false;
     }
+    if (!window.isSecureContext) {
+      setError('Les notifications push nécessitent HTTPS.');
+      return false;
+    }
     setBusy(true);
     try {
       let perm = Notification.permission;
@@ -77,7 +96,11 @@ export function usePushSubscription() {
         return false;
       }
 
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await ensureServiceWorker();
+      if (!reg.pushManager) {
+        throw new Error('Push non disponible — installez la PWA depuis l\'écran d\'accueil (iPhone) ou utilisez Chrome.');
+      }
+
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
         sub = await reg.pushManager.subscribe({
@@ -97,8 +120,12 @@ export function usePushSubscription() {
       setSubscribed(true);
       return true;
     } catch (e) {
-      console.warn('push subscribe failed', e);
-      setError(e.message || 'Activation impossible. Réessayez sur HTTPS ou installez la PWA.');
+      const msg = e?.message || '';
+      if (/push service not available|not supported|registration failed/i.test(msg)) {
+        setError('Push indisponible — ouvrez l\'app en PWA installée ou via Chrome/Edge sur HTTPS.');
+      } else {
+        setError(msg || 'Activation impossible. Réessayez sur HTTPS ou installez la PWA.');
+      }
       return false;
     } finally {
       setBusy(false);

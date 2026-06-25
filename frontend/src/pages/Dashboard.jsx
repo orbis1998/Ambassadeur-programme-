@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { usePushSubscription } from '@/lib/usePushSubscription';
+import { fetchAmbassadorDashboardData, fetchAmbassadorDashboardDirect } from '@/lib/ambassadorData';
 import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
   fetchCommissionRate, CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
@@ -11,7 +11,7 @@ import {
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
   ArrowUpRight, Award, Sparkles, Trophy, Medal, Crown, Flame, ExternalLink, QrCode as QrIcon,
-  Bell, BellRing, Tag, Percent,
+  Tag, Percent,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -19,7 +19,6 @@ const ICONS = { sparkles: Sparkles, trophy: Trophy, medal: Medal, crown: Crown, 
 
 export default function Dashboard() {
   const { user, profile, application, promoCodes, trackingLink } = useAuth();
-  const push = usePushSubscription();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [commissionRate, setRate] = useState(10);
@@ -38,23 +37,19 @@ export default function Dashboard() {
     let active = true;
     (async () => {
       setLoading(true);
-      const rate = await fetchCommissionRate();
+      const { data: { session } } = await supabase.auth.getSession();
+      const bundle = await fetchAmbassadorDashboardData(session?.access_token);
+      const source = bundle || await fetchAmbassadorDashboardDirect(user.id);
+      if (!active) return;
+
+      const rate = bundle?.commission_rate ?? (await fetchCommissionRate());
       if (!active) return;
       setRate(rate);
 
-      const [{ data: orders }, { data: links }, { data: wRes }] = await Promise.all([
-        supabase.from('orders').select('id, total_amount, status, created_at, customer_name').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
-        supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
-      ]);
-      const linkIds = (links || []).map((l) => l.id);
-      let clicks = [];
-      if (linkIds.length) {
-        const { data: c } = await supabase.from('ambassador_clicks').select('id, link_id, clicked_at, referrer, user_agent').in('link_id', linkIds).order('clicked_at', { ascending: false }).limit(500);
-        clicks = c || [];
-      }
-
-      const ordersArr = orders || [];
+      const orders = source.orders || [];
+      const links = source.links || [];
+      const clicks = source.clicks || [];
+      const wRes = source.withdrawals || [];
       const isConfirmed = (s) => CONFIRMED_ORDER_STATUSES.includes((s || '').toString().toLowerCase().trim());
       const isPending = (s) => PENDING_ORDER_STATUSES.includes((s || '').toString().toLowerCase().trim());
 
@@ -147,32 +142,6 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
-
-      {/* Notifications CTA */}
-      {push.supported && !push.subscribed && push.permission !== 'denied' && (
-        <div className="vsm-card p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 border-primary/40 bg-primary/5 animate-fade-up" data-testid="push-cta">
-          <BellRing className="w-5 h-5 text-primary flex-shrink-0" />
-          <div className="flex-1 text-sm">
-            <div className="font-semibold">Activez les notifications</div>
-            <div className="text-xs text-muted-foreground">Soyez alerté immédiatement lors d'une vente, d'un retrait validé ou d'un nouveau challenge.</div>
-            {push.error && (
-              <div className="text-xs text-destructive mt-2" data-testid="push-error">{push.error}</div>
-            )}
-            {!push.configured && (
-              <div className="text-xs text-amber-400 mt-2">VAPID non configuré — ajoutez REACT_APP_VAPID_PUBLIC_KEY sur Vercel.</div>
-            )}
-          </div>
-          <button onClick={push.subscribe} disabled={push.busy || !push.configured} data-testid="push-enable-btn"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-xs font-semibold uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50 shrink-0">
-            {push.busy ? '...' : 'Activer'}
-          </button>
-        </div>
-      )}
-      {push.subscribed && (
-        <div className="mb-6 flex items-center gap-2 text-xs text-emerald-400" data-testid="push-active">
-          <Bell className="w-3.5 h-3.5" /> Notifications activées
-        </div>
-      )}
 
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
