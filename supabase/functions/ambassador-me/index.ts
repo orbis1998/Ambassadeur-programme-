@@ -17,6 +17,39 @@ function json(body: Record<string, unknown>, status = 200): Response {
   });
 }
 
+function badgeSlug(userId: string): string {
+  const tail = userId.replace(/-/g, "").slice(-4).toUpperCase();
+  return `VSM-${tail}`;
+}
+
+async function ensureAmbassadorLink(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const { data: rows } = await admin
+    .from("ambassador_links")
+    .select("*")
+    .eq("ambassador_id", userId)
+    .order("created_at", { ascending: false });
+
+  const existing = (rows || []).find((l) => l.active !== false) || rows?.[0];
+  if (existing) return existing;
+
+  const slug = badgeSlug(userId);
+  const { data: created } = await admin
+    .from("ambassador_links")
+    .insert({
+      ambassador_id: userId,
+      slug,
+      target_type: "product",
+      active: true,
+    })
+    .select("*")
+    .maybeSingle();
+
+  return created || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: cors });
@@ -53,7 +86,11 @@ Deno.serve(async (req) => {
   const approved = rows.find((x) => (x.status || "").toLowerCase() === "approved");
   const application = approved || rows[0] || null;
   const linkRows = links || [];
-  const tracking_link = linkRows.find((l) => l.active !== false) || linkRows[0] || null;
+  let tracking_link = linkRows.find((l) => l.active !== false) || linkRows[0] || null;
+
+  if (application && (application.status || "").toLowerCase() === "approved" && !tracking_link) {
+    tracking_link = await ensureAmbassadorLink(admin, userId);
+  }
 
   return json({
     user_id: userId,

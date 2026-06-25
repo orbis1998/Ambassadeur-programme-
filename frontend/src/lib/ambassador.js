@@ -42,14 +42,24 @@ export function ambassadorBadgeCode(profileId) {
   return `VSM-${hash}`;
 }
 
+export function getAmbassadorAppOrigin() {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, '');
+  }
+  return (process.env.REACT_APP_APP_URL || 'https://ambassadeur-programme.vercel.app').replace(/\/$/, '');
+}
+
+/** Shareable tracking URL — records a visit via /r/:slug then redirects to vsmcollection.com */
 export function buildAmbassadorLink(slug) {
+  const code = slug || 'VSM';
+  return `${getAmbassadorAppOrigin()}/r/${encodeURIComponent(code)}`;
+}
+
+/** Final destination on the official VSM shop (no click tracking). */
+export function buildSiteRefLink(slug) {
   const code = slug || 'VSM';
   const base = (SITE_URL || 'https://www.vsmcollection.com').replace(/\/$/, '');
   return `${base}/?ref=${encodeURIComponent(code)}`;
-}
-
-export function buildSiteRefLink(slug) {
-  return buildAmbassadorLink(slug);
 }
 
 // Fetch commission rate (% as integer or float). Falls back to DEFAULT_COMMISSION_RATE.
