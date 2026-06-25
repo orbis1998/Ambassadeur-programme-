@@ -3,10 +3,39 @@ import { supabase, SITE_URL } from './supabase';
 // Default commission rate (in %) — fallback if settings table empty.
 export const DEFAULT_COMMISSION_RATE = 10;
 
-// Statuts orders considérés comme "validés"
-export const CONFIRMED_ORDER_STATUSES = ['confirmée', 'confirmee', 'confirmed', 'livrée', 'livree', 'delivered', 'payée', 'payee', 'paid'];
-export const PENDING_ORDER_STATUSES = ['en_attente', 'en attente', 'pending', 'nouvelle', 'new'];
-export const CANCELLED_ORDER_STATUSES = ['annulée', 'annulee', 'cancelled', 'canceled', 'refusée'];
+// Statuts orders — normalisés sans accents pour matcher la DB VSM (traitée, nouvelle, etc.)
+export const CONFIRMED_ORDER_STATUSES = [
+  'confirmee', 'confirmed', 'livree', 'delivered', 'payee', 'paid',
+  'traitee', 'traite', 'validee', 'valide', 'completee', 'complete',
+];
+export const PENDING_ORDER_STATUSES = [
+  'en_attente', 'en attente', 'pending', 'nouvelle', 'new', 'en_cours', 'encours',
+];
+export const CANCELLED_ORDER_STATUSES = [
+  'annulee', 'cancelled', 'canceled', 'refusee', 'refused',
+];
+
+/** Lowercase + strip accents so "traitée" matches "traitee". */
+export function normalizeOrderStatus(status) {
+  return (status || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+export function isConfirmedStatus(status) {
+  return CONFIRMED_ORDER_STATUSES.includes(normalizeOrderStatus(status));
+}
+
+export function isPendingStatus(status) {
+  return PENDING_ORDER_STATUSES.includes(normalizeOrderStatus(status));
+}
+
+export function isCancelledStatus(status) {
+  return CANCELLED_ORDER_STATUSES.includes(normalizeOrderStatus(status));
+}
 
 // VSM Ambassador tiers — progressive commission boosts.
 export const TIERS = [

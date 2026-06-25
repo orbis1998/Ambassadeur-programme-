@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
-  fetchCommissionRate, CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
+  fetchCommissionRate, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
+  isConfirmedStatus, isPendingStatus, isCancelledStatus,
 } from '@/lib/ambassador';
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
@@ -40,24 +41,26 @@ export default function Dashboard() {
       if (!active) return;
       setRate(rate);
 
-      const [{ data: orders }, { data: links }, { data: wRes }] = await Promise.all([
+      const [{ data: orders, error: oErr }, { data: links, error: lErr }, { data: wRes, error: wErr }] = await Promise.all([
         supabase.from('orders').select('id, total_amount, status, created_at, customer_name').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
         supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
         supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
       ]);
+      if (oErr) console.warn('orders', oErr.message);
+      if (lErr) console.warn('ambassador_links', lErr.message);
+      if (wErr) console.warn('withdrawals', wErr.message);
+
       const linkIds = (links || []).map((l) => l.id);
       let clicks = [];
       if (linkIds.length) {
-        const { data: c } = await supabase.from('ambassador_clicks').select('id, link_id, clicked_at, referrer, user_agent').in('link_id', linkIds).order('clicked_at', { ascending: false }).limit(500);
+        const { data: c, error: cErr } = await supabase.from('ambassador_clicks').select('id, link_id, clicked_at, referrer, user_agent').in('link_id', linkIds).order('clicked_at', { ascending: false }).limit(500);
+        if (cErr) console.warn('ambassador_clicks', cErr.message);
         clicks = c || [];
       }
 
-      const ordersArr = orders || [];
-      const isConfirmed = (s) => CONFIRMED_ORDER_STATUSES.includes((s || '').toString().toLowerCase().trim());
-      const isPending = (s) => PENDING_ORDER_STATUSES.includes((s || '').toString().toLowerCase().trim());
-
-      const confirmed = ordersArr.filter((o) => isConfirmed(o.status));
-      const pending = ordersArr.filter((o) => isPending(o.status));
+      const ordersArr = (orders || []).filter((o) => !isCancelledStatus(o.status));
+      const confirmed = ordersArr.filter((o) => isConfirmedStatus(o.status));
+      const pending = ordersArr.filter((o) => isPendingStatus(o.status));
 
       const totalRevenue = confirmed.reduce((s, o) => s + Number(o.total_amount || 0), 0);
       const totalCommissions = totalRevenue * (rate / 100);
@@ -116,7 +119,7 @@ export default function Dashboard() {
   const tier = useMemo(() => getTier(stats?.confirmedSales || 0), [stats?.confirmedSales]);
   const badges = useMemo(() => getBadges(stats), [stats]);
 
-  const name = profile?.full_name || application?.full_name || 'Ambassadeur';
+  const name = profile?.full_name || profile?.name || application?.full_name || 'Ambassadeur';
   const joined = application?.created_at;
 
   return (

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, CONFIRMED_ORDER_STATUSES, MIN_WITHDRAWAL_ORDERS, relativeDate } from '@/lib/ambassador';
+import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus } from '@/lib/ambassador';
 import { Wallet, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -30,7 +30,7 @@ export default function Withdraw() {
         supabase.from('orders').select('total_amount, status').eq('ambassador_id', user.id),
         supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
       ]);
-      const confirmed = (orders || []).filter((o) => CONFIRMED_ORDER_STATUSES.includes((o.status || '').toString().toLowerCase().trim()));
+      const confirmed = (orders || []).filter((o) => isConfirmedStatus(o.status));
       const totalRevenue = confirmed.reduce((s, o) => s + Number(o.total_amount || 0), 0);
       const totalCommissions = totalRevenue * (rate / 100);
       const wActive = (wRes || []).filter((w) => ['paid','payée','pending','en_attente','approved'].includes((w.status||'').toLowerCase()));

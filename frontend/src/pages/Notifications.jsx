@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, formatFC, relativeDate } from '@/lib/ambassador';
+import { isConfirmedStatus, isPendingStatus, formatFC, relativeDate } from '@/lib/ambassador';
 import { Bell, ShoppingBag, Wallet, AlertCircle, Tag } from 'lucide-react';
 
 function buildEvents(orders, withdrawals) {
   const events = [];
   (orders || []).forEach((o) => {
-    const s = (o.status || '').toLowerCase().trim();
-    if (CONFIRMED_ORDER_STATUSES.includes(s)) {
+    if (isConfirmedStatus(o.status)) {
       events.push({
         id: `o-${o.id}`,
         kind: 'sale',
@@ -16,7 +15,7 @@ function buildEvents(orders, withdrawals) {
         title: 'Commande confirmée ✓',
         desc: `Commande #${o.id} — ${formatFC(o.total_amount)} validée`,
       });
-    } else if (PENDING_ORDER_STATUSES.includes(s)) {
+    } else if (isPendingStatus(o.status)) {
       events.push({
         id: `o-pending-${o.id}`,
         kind: 'promo',

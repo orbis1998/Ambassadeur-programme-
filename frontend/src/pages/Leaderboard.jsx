@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { CONFIRMED_ORDER_STATUSES, ambassadorBadgeCode, formatFC } from '@/lib/ambassador';
+import { isConfirmedStatus, ambassadorBadgeCode, formatFC } from '@/lib/ambassador';
 import { Trophy, Medal, Crown } from 'lucide-react';
 
 export default function Leaderboard() {
@@ -26,8 +26,7 @@ export default function Leaderboard() {
       const agg = new Map();
       (orders || []).forEach((o) => {
         if (!o.ambassador_id) return;
-        const s = (o.status || '').toLowerCase().trim();
-        if (!CONFIRMED_ORDER_STATUSES.includes(s)) return;
+        if (!isConfirmedStatus(o.status)) return;
         const cur = agg.get(o.ambassador_id) || { sales: 0, revenue: 0 };
         cur.sales += 1;
         cur.revenue += Number(o.total_amount || 0);
