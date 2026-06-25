@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { BRAND_LOGO } from '@/constants/branding';
+import { OPENING_LOGO, LOGIN_PAGE_LOGO } from '@/constants/branding';
 import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
 
 const FETCH_TIMEOUT_MS = 8000;
@@ -111,11 +111,14 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8 animate-fade-up">
             <Link to="/" data-testid="brand-home-link" className="inline-block">
-              <img src={BRAND_LOGO} alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
+              <img src={OPENING_LOGO} alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
             </Link>
           </div>
 
           <div className="vsm-card p-7 sm:p-8 animate-fade-up stagger-1" data-testid="login-card">
+            <div className="text-center mb-5">
+              <img src={LOGIN_PAGE_LOGO} alt="" className="h-16 mx-auto" data-testid="login-page-icon" />
+            </div>
             <h1 className="text-2xl font-display font-bold mb-1">Connexion ambassadeur</h1>
             <p className="text-sm text-muted-foreground mb-6">Accédez à votre espace VSM.</p>
 

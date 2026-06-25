@@ -13,12 +13,12 @@ import Settings from '@/pages/Settings';
 import TrackingRedirect from '@/pages/TrackingRedirect';
 import AppShell from '@/components/layout/AppShell';
 import '@/App.css';
-import { BRAND_LOGO } from '@/constants/branding';
+import { OPENING_LOGO } from '@/constants/branding';
 
 function Splash() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black grain" data-testid="splash">
-      <img src={BRAND_LOGO} alt="VSM Ambassador Program" className="w-44 max-w-[70vw]" />
+      <img src={OPENING_LOGO} alt="VSM Ambassador Program" className="w-44 max-w-[70vw]" />
     </div>
   );
 }

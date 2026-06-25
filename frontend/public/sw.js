@@ -1,9 +1,10 @@
 // VSM Ambassador PWA — service worker with Web Push + offline shell
-const CACHE = 'vsm-amb-v5';
+const CACHE = 'vsm-amb-v6';
 const SHELL = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icons/logo-original.png',
   '/icons/file_000000008e6471f4811ba9633a86cab4.png',
   '/icons/image_1782342973184.jpeg',
 ];
@@ -58,7 +59,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     icon: data.icon || '/icons/image_1782342973184.jpeg',
-    badge: '/icons/image_1782342973184.jpeg',
+    badge: '/icons/file_000000008e6471f4811ba9633a86cab4.png',
     data: { url: data.url || '/dashboard' },
     vibrate: [120, 60, 120],
     tag: data.tag || 'vsm-amb',
