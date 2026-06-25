@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fetchAmbassadorDashboardData, fetchAmbassadorDashboardDirect } from '@/lib/ambassadorData';
 import { CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, formatFC, relativeDate } from '@/lib/ambassador';
 import { Bell, ShoppingBag, Wallet, AlertCircle, Tag } from 'lucide-react';
 
@@ -49,12 +48,11 @@ export default function Notifications() {
   const load = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const bundle = await fetchAmbassadorDashboardData(session?.access_token);
-    const source = bundle || await fetchAmbassadorDashboardDirect(user.id);
-    const orders = (source.orders || []).slice(0, 30);
-    const withdrawals = (source.withdrawals || []).slice(0, 10);
-    setItems(buildEvents(orders, withdrawals));
+    const [{ data: orders }, { data: w }] = await Promise.all([
+      supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(10),
+    ]);
+    setItems(buildEvents(orders, w));
     setLoading(false);
   }, [user?.id]);
 

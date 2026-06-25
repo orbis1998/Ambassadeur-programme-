@@ -3,7 +3,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fetchAmbassadorDashboardData, fetchAmbassadorDashboardDirect } from '@/lib/ambassadorData';
 import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
   fetchCommissionRate, CONFIRMED_ORDER_STATUSES, PENDING_ORDER_STATUSES, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
@@ -37,19 +36,23 @@ export default function Dashboard() {
     let active = true;
     (async () => {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const bundle = await fetchAmbassadorDashboardData(session?.access_token);
-      const source = bundle || await fetchAmbassadorDashboardDirect(user.id);
-      if (!active) return;
-
-      const rate = bundle?.commission_rate ?? (await fetchCommissionRate());
+      const rate = await fetchCommissionRate();
       if (!active) return;
       setRate(rate);
 
-      const orders = source.orders || [];
-      const links = source.links || [];
-      const clicks = source.clicks || [];
-      const wRes = source.withdrawals || [];
+      const [{ data: orders }, { data: links }, { data: wRes }] = await Promise.all([
+        supabase.from('orders').select('id, total_amount, status, created_at, customer_name').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
+        supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
+      ]);
+      const linkIds = (links || []).map((l) => l.id);
+      let clicks = [];
+      if (linkIds.length) {
+        const { data: c } = await supabase.from('ambassador_clicks').select('id, link_id, clicked_at, referrer, user_agent').in('link_id', linkIds).order('clicked_at', { ascending: false }).limit(500);
+        clicks = c || [];
+      }
+
+      const ordersArr = orders || [];
       const isConfirmed = (s) => CONFIRMED_ORDER_STATUSES.includes((s || '').toString().toLowerCase().trim());
       const isPending = (s) => PENDING_ORDER_STATUSES.includes((s || '').toString().toLowerCase().trim());
 
