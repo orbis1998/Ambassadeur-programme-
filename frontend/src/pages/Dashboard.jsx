@@ -18,7 +18,7 @@ import { QRCodeSVG } from 'qrcode.react';
 const ICONS = { sparkles: Sparkles, trophy: Trophy, medal: Medal, crown: Crown, flame: Flame };
 
 export default function Dashboard() {
-  const { user, profile, application, promoCodes, trackingLink } = useAuth();
+  const { user, profile, application, promoCodes, trackingLink, loading: authLoading, userDataLoaded } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [commissionRate, setRate] = useState(10);
@@ -33,7 +33,7 @@ export default function Dashboard() {
   const refLink = buildAmbassadorLink(slug);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (authLoading || !userDataLoaded || !user?.id) return;
     let active = true;
     (async () => {
       setLoading(true);
@@ -123,7 +123,7 @@ export default function Dashboard() {
       setLoading(false);
     })();
     return () => { active = false; };
-  }, [user?.id, promoCodes]);
+  }, [authLoading, userDataLoaded, user?.id, promoCodes]);
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(refLink); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (_e) { /* clipboard unavailable */ }

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { packMotivation } from '@/lib/ambassador';
 import { BRAND_LOGO } from '@/constants/branding';
 import { ArrowLeft, Loader2, CheckCircle2, Instagram, Facebook, Music2, Sparkles } from 'lucide-react';
@@ -54,49 +55,86 @@ export default function Apply() {
     setLoading(true);
 
     try {
-      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+      const email = f.email.trim().toLowerCase();
       const username = (f.instagram || f.facebook || f.tiktok || '')
         .replace(/^@/, '')
         .replace(/^https?:\/\/[^/]+\//, '')
-        .replace(/\/$/, '');
-      const res = await fetch(`${BACKEND_URL}/api/ambassador/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: f.full_name,
-          phone: f.phone,
-          email: f.email.trim(),
+        .replace(/\/$/, '') || f.full_name;
+
+      const payload = {
+        full_name: f.full_name,
+        phone: f.phone,
+        email,
+        username,
+        main_platform: f.main_platform,
+        profile_url: f.instagram || f.facebook || f.tiktok || '',
+        motivation: packMotivation(f),
+        status: 'pending',
+      };
+
+      let userId = user?.id;
+
+      if (!userId) {
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email,
           password: f.password,
-          username: username || f.full_name,
-          main_platform: f.main_platform,
-          profile_url: f.instagram || f.facebook || f.tiktok || '',
-          motivation: packMotivation(f),
-        }),
+          options: { data: { full_name: f.full_name } },
+        });
+        if (signUpErr) throw signUpErr;
+        userId = signUpData.user?.id;
+        if (signUpData.session) {
+          userId = signUpData.session.user.id;
+        } else {
+          const { error: loginErr } = await signIn(email, f.password);
+          if (loginErr) throw loginErr;
+          const { data: { session } } = await supabase.auth.getSession();
+          userId = session?.user?.id;
+        }
+      }
+
+      if (!userId) throw new Error('Compte créé — vérifiez votre email puis connectez-vous.');
+
+      await supabase.from('profiles').upsert({
+        id: userId,
+        full_name: f.full_name,
+        email,
+        phone: f.phone,
+        name: f.full_name,
+      }, { onConflict: 'id' });
+
+      const { data: existing } = await supabase
+        .from('ambassador_applications')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (existing?.id) {
+        setLoading(false);
+        setSuccess(true);
+        return;
+      }
+
+      const { error: insertErr } = await supabase.from('ambassador_applications').insert({
+        ...payload,
+        user_id: userId,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg =
-          typeof data?.detail === 'string'
-            ? data.detail
-            : Array.isArray(data?.detail)
-            ? data.detail[0]?.msg
-            : "Erreur lors de l'envoi.";
-        setError(msg);
-        setLoading(false);
-        return;
+      if (insertErr) throw insertErr;
+
+      if (!user) {
+        const { error: loginErr } = await signIn(email, f.password);
+        if (loginErr) {
+          setError('Candidature envoyée. Connectez-vous avec votre email et mot de passe.');
+          setLoading(false);
+          return;
+        }
+      } else {
+        await refresh();
       }
-      const { error: loginErr } = await signIn(f.email.trim(), f.password);
-      if (loginErr) {
-        setLoading(false);
-        setError("Candidature envoyée mais connexion échouée. Veuillez vous connecter manuellement.");
-        return;
-      }
-      await refresh();
+
       setLoading(false);
       setSuccess(true);
     } catch (err) {
       setLoading(false);
-      setError(err.message || "Erreur réseau lors de l'envoi.");
+      setError(err.message || "Erreur lors de l'envoi de la candidature.");
     }
   };
 

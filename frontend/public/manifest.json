@@ -3,7 +3,7 @@
   "name": "VSM Ambassador Program",
   "short_name": "VSM Ambassador",
   "description": "Programme Ambassadeur VSM Collection — Vivre avec style.",
-  "start_url": "/",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
+import { useAuth, routeAfterAuth } from '@/lib/auth';
 import { OPENING_LOGO, LOGIN_PAGE_LOGO } from '@/constants/branding';
 import { Eye, EyeOff, Loader2, ArrowRight, User } from 'lucide-react';
 
@@ -17,9 +17,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS)
 }
 
 function routeAfterLogin(application) {
-  const status = (application?.status || '').toLowerCase();
-  if (status === 'pending' || status === 'rejected') return '/pending';
-  return '/dashboard';
+  return routeAfterAuth(application);
 }
 
 export default function Login() {
@@ -110,7 +108,7 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8 animate-fade-up">
-            <Link to="/" data-testid="brand-home-link" className="inline-block">
+            <Link to="/login" data-testid="brand-home-link" className="inline-block">
               <img src={OPENING_LOGO} alt="VSM Ambassador Program" data-testid="login-logo" className="w-44 mx-auto" />
             </Link>
           </div>

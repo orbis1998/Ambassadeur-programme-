@@ -24,29 +24,18 @@ function Splash() {
   );
 }
 
-function PublicOnly({ children }) {
+/** Login page — redirect only approved / pending ambassadors, never force /apply */
+function LoginRoute() {
   const { user, loading, isApproved, isPending, isRejected } = useAuth();
   if (loading) return <Splash />;
   if (user) {
     if (isApproved) return <Navigate to="/dashboard" replace />;
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    return <Navigate to="/apply" replace />;
   }
-  return children;
+  return <Login />;
 }
 
-function RequireAuth({ children, requireApproved = false }) {
-  const { user, loading, isApproved, isPending, isRejected, application } = useAuth();
-  const location = useLocation();
-  if (loading) return <Splash />;
-  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  if (requireApproved && !isApproved) {
-    if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    if (!application) return <Navigate to="/apply" replace />;
-  }
-  return children;
-}
-
+/** Registration — guests only; connected users go to their space */
 function ApplyRoute() {
   const { user, loading, isApproved, isPending, isRejected } = useAuth();
   if (loading) return <Splash />;
@@ -57,19 +46,27 @@ function ApplyRoute() {
   return <Apply />;
 }
 
+function RequireAuth({ children, requireApproved = false }) {
+  const { user, loading, isApproved, isPending, isRejected } = useAuth();
+  const location = useLocation();
+  if (loading) return <Splash />;
+  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (requireApproved && !isApproved) {
+    if (isPending || isRejected) return <Navigate to="/pending" replace />;
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/r/:slug" element={<TrackingRedirect />} />
-      <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/apply" element={<ApplyRoute />} />
-      <Route path="/pending" element={
-        <RequireAuth><Pending /></RequireAuth>
-      } />
-      <Route element={
-        <RequireAuth requireApproved><AppShell /></RequireAuth>
-      }>
+      <Route path="/pending" element={<RequireAuth><Pending /></RequireAuth>} />
+      <Route element={<RequireAuth requireApproved><AppShell /></RequireAuth>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/withdraw" element={<Withdraw />} />
         <Route path="/dashboard/leaderboard" element={<Leaderboard />} />

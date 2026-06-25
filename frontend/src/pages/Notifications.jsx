@@ -40,12 +40,12 @@ function buildEvents(orders, withdrawals) {
 }
 
 export default function Notifications() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id || authLoading) return;
     setLoading(true);
     const [{ data: orders }, { data: w }] = await Promise.all([
       supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(30),
@@ -53,7 +53,7 @@ export default function Notifications() {
     ]);
     setItems(buildEvents(orders, w));
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   useEffect(() => { load(); }, [load]);
 
