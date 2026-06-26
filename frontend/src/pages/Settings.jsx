@@ -3,13 +3,15 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Save, MessageCircle, Send } from 'lucide-react';
+import { Loader2, Save, MessageCircle, Send, Bell, BellOff, CheckCircle2 } from 'lucide-react';
+import { usePushSubscription } from '@/lib/usePushSubscription';
 
 const SUPPORT_WHATSAPP = '243812585022'; // VSM admin phone (sans +)
 
 export default function Settings() {
   const { user, profile, refresh, signOut } = useAuth();
   const navigate = useNavigate();
+  const push = usePushSubscription();
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
@@ -91,6 +93,46 @@ export default function Settings() {
             Changer le mot de passe
           </button>
         </form>
+      </section>
+
+      <section className="vsm-card p-5 sm:p-6 mb-5" data-testid="notifications-settings-card">
+        <h2 className="font-display text-xl font-bold mb-3 flex items-center gap-2">
+          <Bell className="w-5 h-5 text-primary" /> Notifications push
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Recevez une alerte quand une commande est validée, quand votre candidature est approuvée ou quand un retrait est traité.
+        </p>
+        {!push.supported ? (
+          <p className="text-sm text-muted-foreground">Notifications non supportées sur ce navigateur.</p>
+        ) : !push.configured ? (
+          <p className="text-sm text-amber-400">Configuration serveur incomplète (clé VAPID).</p>
+        ) : push.subscribed ? (
+          <div className="flex items-center gap-2 text-sm text-emerald-400">
+            <CheckCircle2 className="w-4 h-4" /> Notifications activées sur cet appareil
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {push.permission === 'denied' && (
+              <p className="text-sm text-amber-400 flex items-start gap-2">
+                <BellOff className="w-4 h-4 mt-0.5" />
+                Permission refusée — autorisez les notifications dans les paramètres du navigateur ou de l&apos;app installée.
+              </p>
+            )}
+            {push.error && (
+              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-sm px-3 py-2">{push.error}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => push.subscribe()}
+              disabled={push.busy || push.permission === 'denied'}
+              data-testid="enable-push-btn"
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+            >
+              {push.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
+              Activer les notifications
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="vsm-card p-5 sm:p-6 mb-5">

@@ -175,5 +175,5 @@ export function routeAfterAuth(application) {
   const status = (application?.status || '').toLowerCase();
   if (status === 'approved') return '/dashboard';
   if (status === 'pending' || status === 'rejected') return '/pending';
-  return '/pending';
+  return '/login';
 }

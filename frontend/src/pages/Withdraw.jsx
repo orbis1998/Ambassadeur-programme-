@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus } from '@/lib/ambassador';
+import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, computeWithdrawalStats } from '@/lib/ambassador';
 import { Wallet, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -13,7 +13,10 @@ export default function Withdraw() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({ confirmedSales: 0, available: 0, totalCommissions: 0 });
+  const [stats, setStats] = useState({
+    confirmedSales: 0, available: 0, totalCommissions: 0,
+    newOrdersSinceWithdraw: 0, ordersUntilWithdraw: MIN_WITHDRAWAL_ORDERS, canWithdraw: false,
+  });
   const [history, setHistory] = useState([]);
 
   const [op, setOp] = useState('airtel');
@@ -27,23 +30,31 @@ export default function Withdraw() {
       setLoading(true);
       const rate = await fetchCommissionRate();
       const [{ data: orders }, { data: wRes }] = await Promise.all([
-        supabase.from('orders').select('total_amount, status').eq('ambassador_id', user.id),
+        supabase.from('orders').select('total_amount, status, created_at').eq('ambassador_id', user.id),
         supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
       ]);
       const confirmed = (orders || []).filter((o) => isConfirmedStatus(o.status));
-      const totalRevenue = confirmed.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-      const totalCommissions = totalRevenue * (rate / 100);
-      const wActive = (wRes || []).filter((w) => ['paid','payée','pending','en_attente','approved'].includes((w.status||'').toLowerCase()));
-      const used = wActive.reduce((s, w) => s + Number(w.amount || 0), 0);
+      const withdrawalStats = computeWithdrawalStats({
+        confirmedOrders: confirmed,
+        withdrawals: wRes || [],
+        commissionRate: rate,
+      });
       if (!active) return;
-      setStats({ confirmedSales: confirmed.length, available: Math.max(0, totalCommissions - used), totalCommissions });
+      setStats({
+        confirmedSales: withdrawalStats.totalConfirmedSales,
+        available: withdrawalStats.availableCommissions,
+        totalCommissions: withdrawalStats.totalCommissions,
+        newOrdersSinceWithdraw: withdrawalStats.newOrdersSinceWithdraw,
+        ordersUntilWithdraw: withdrawalStats.ordersUntilWithdraw,
+        canWithdraw: withdrawalStats.canWithdraw,
+      });
       setHistory(wRes || []);
       setLoading(false);
     })();
     return () => { active = false; };
   }, [user?.id]);
 
-  const canRequest = stats.confirmedSales >= MIN_WITHDRAWAL_ORDERS && stats.available > 0;
+  const canRequest = stats.canWithdraw;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -64,6 +75,7 @@ export default function Withdraw() {
         const { error: insErr } = await supabase.from('ambassador_withdrawal_requests').insert({
           ambassador_id: user.id, mobile_operator: op, msisdn: msisdn.trim(),
           beneficiary_name: beneficiary.trim(), status: 'pending',
+          amount: stats.available,
         });
         if (insErr) throw insErr;
         ok = true;
@@ -118,8 +130,8 @@ export default function Withdraw() {
         <div className="vsm-card p-4 mb-6 border-amber-500/40 bg-amber-500/10 flex items-start gap-3" data-testid="withdraw-blocked">
           <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            {stats.confirmedSales < MIN_WITHDRAWAL_ORDERS ? (
-              <>Vous devez atteindre <strong>{MIN_WITHDRAWAL_ORDERS} commandes confirmées</strong> avant de pouvoir demander un retrait. Continuez à partager votre lien !</>
+            {stats.newOrdersSinceWithdraw < MIN_WITHDRAWAL_ORDERS ? (
+              <>Encore <strong>{stats.ordersUntilWithdraw} nouvelle{stats.ordersUntilWithdraw > 1 ? 's' : ''} vente{stats.ordersUntilWithdraw > 1 ? 's' : ''}</strong> validée{stats.ordersUntilWithdraw > 1 ? 's' : ''} depuis votre dernier retrait ({stats.newOrdersSinceWithdraw}/{MIN_WITHDRAWAL_ORDERS}).</>
             ) : (
               <>Aucune commission disponible au retrait pour le moment.</>
             )}

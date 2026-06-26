@@ -7,6 +7,7 @@ import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
   fetchCommissionRate, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
   isConfirmedStatus, isPendingStatus, isCancelledStatus,
+  computeWithdrawalStats,
 } from '@/lib/ambassador';
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
@@ -74,12 +75,11 @@ export default function Dashboard() {
       const pending = ordersArr.filter((o) => isPendingStatus(o.status));
 
       const totalRevenue = confirmed.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-      const totalCommissions = totalRevenue * (rate / 100);
-
-      // Commissions disponibles = confirmées - retraits payés/en attente
-      const paidOrPendingW = (wRes || []).filter((w) => ['paid','payée','pending','en_attente','approved'].includes((w.status||'').toLowerCase()));
-      const wTotal = paidOrPendingW.reduce((s, w) => s + Number(w.amount || 0), 0);
-      const availableCommissions = Math.max(0, totalCommissions - wTotal);
+      const withdrawalStats = computeWithdrawalStats({
+        confirmedOrders: confirmed,
+        withdrawals: wRes || [],
+        commissionRate: rate,
+      });
 
       // This month
       const now = new Date();
@@ -96,12 +96,15 @@ export default function Dashboard() {
 
       if (!active) return;
       setStats({
-        confirmedSales: confirmed.length,
+        confirmedSales: withdrawalStats.totalConfirmedSales,
         pendingSales: pending.length,
         totalSales: ordersArr.length,
-        totalRevenue,
-        totalCommissions,
-        availableCommissions,
+        totalRevenue: withdrawalStats.totalRevenue,
+        totalCommissions: withdrawalStats.totalCommissions,
+        availableCommissions: withdrawalStats.availableCommissions,
+        newOrdersSinceWithdraw: withdrawalStats.newOrdersSinceWithdraw,
+        ordersUntilWithdraw: withdrawalStats.ordersUntilWithdraw,
+        canWithdraw: withdrawalStats.canWithdraw,
         totalClicks: clicks.length,
         uniqueVisitors,
         month: {
@@ -296,14 +299,17 @@ export default function Dashboard() {
             Min. <strong>{MIN_WITHDRAWAL_ORDERS} commandes</strong> validées requis.
             {!loading && <> Vous avez <strong className="text-foreground">{stats.confirmedSales}</strong>.</>}
           </div>
-          <Link to="/dashboard/withdraw" data-testid="goto-withdraw-btn"
-            className={`mt-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-sm font-semibold uppercase tracking-wider transition ${
-              !loading && stats.confirmedSales >= MIN_WITHDRAWAL_ORDERS
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : 'bg-secondary text-muted-foreground cursor-not-allowed pointer-events-none'
-            }`}>
-            Demander un retrait <ArrowUpRight className="w-4 h-4" />
-          </Link>
+          {!loading && stats.canWithdraw ? (
+            <Link to="/dashboard/withdraw" data-testid="goto-withdraw-btn"
+              className="mt-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-sm font-semibold uppercase tracking-wider transition bg-primary text-primary-foreground hover:bg-primary/90">
+              Demander un retrait <ArrowUpRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <span data-testid="goto-withdraw-btn"
+              className="mt-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm text-sm font-semibold uppercase tracking-wider bg-secondary text-muted-foreground cursor-not-allowed">
+              Demander un retrait <ArrowUpRight className="w-4 h-4" />
+            </span>
+          )}
         </div>
       </section>
 

@@ -114,6 +114,57 @@ export async function fetchCommissionRate() {
 
 export const MIN_WITHDRAWAL_ORDERS = 10;
 
+const WITHDRAWAL_SUBMITTED_STATUSES = ['pending', 'en_attente', 'approved', 'paid', 'payée', 'payee'];
+const WITHDRAWAL_PAID_STATUSES = ['paid', 'payée', 'payee', 'approved'];
+
+function ordersAfterMarker(orders, marker, { useUpdatedAt = false } = {}) {
+  if (!marker) return orders || [];
+  const t = new Date(useUpdatedAt ? (marker.updated_at || marker.created_at) : marker.created_at).getTime();
+  return (orders || []).filter((o) => new Date(o.created_at || 0).getTime() > t);
+}
+
+/**
+ * Retrait par paliers de 10 nouvelles commandes depuis le dernier retrait.
+ * Totaux ventes / CA / commissions gagnées = cumulatif.
+ * Commission disponible = uniquement depuis le dernier retrait payé.
+ */
+export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissionRate }) {
+  const rate = Number(commissionRate) / 100;
+  const confirmed = confirmedOrders || [];
+  const sorted = (withdrawals || []).slice().sort(
+    (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+  );
+
+  const lastSubmitted = sorted.find((w) =>
+    WITHDRAWAL_SUBMITTED_STATUSES.includes((w.status || '').toLowerCase()),
+  );
+  const lastPaid = sorted.find((w) =>
+    WITHDRAWAL_PAID_STATUSES.includes((w.status || '').toLowerCase()),
+  );
+
+  const sumRevenue = (rows) => rows.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+
+  const totalConfirmedSales = confirmed.length;
+  const totalRevenue = sumRevenue(confirmed);
+  const totalCommissions = totalRevenue * rate;
+
+  const newOrdersSinceWithdraw = ordersAfterMarker(confirmed, lastSubmitted).length;
+  const commissionOrders = ordersAfterMarker(confirmed, lastPaid, { useUpdatedAt: true });
+  const availableCommissions = sumRevenue(commissionOrders) * rate;
+
+  const canWithdraw = newOrdersSinceWithdraw >= MIN_WITHDRAWAL_ORDERS && availableCommissions > 0;
+
+  return {
+    totalConfirmedSales,
+    totalRevenue,
+    totalCommissions,
+    availableCommissions,
+    newOrdersSinceWithdraw,
+    ordersUntilWithdraw: Math.max(0, MIN_WITHDRAWAL_ORDERS - newOrdersSinceWithdraw),
+    canWithdraw,
+  };
+}
+
 export const MOBILE_OPERATORS = [
   { value: 'airtel', label: 'Airtel Money', color: '#e60000' },
   { value: 'mpesa', label: 'M-Pesa (Vodacom)', color: '#27ae60' },
