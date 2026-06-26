@@ -114,19 +114,47 @@ export async function fetchCommissionRate() {
 
 export const MIN_WITHDRAWAL_ORDERS = 10;
 
-const WITHDRAWAL_SUBMITTED_STATUSES = ['pending', 'en_attente', 'approved', 'paid', 'payée', 'payee'];
-const WITHDRAWAL_PAID_STATUSES = ['paid', 'payée', 'payee', 'approved'];
+const WITHDRAWAL_REJECTED_STATUSES = ['rejected', 'refusee', 'refusée', 'refusé', 'cancelled', 'annulee', 'annulée'];
 
-function ordersAfterMarker(orders, marker, { useUpdatedAt = false } = {}) {
-  if (!marker) return orders || [];
-  const t = new Date(useUpdatedAt ? (marker.updated_at || marker.created_at) : marker.created_at).getTime();
+function normalizeWithdrawalStatus(status) {
+  return (status || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function isRejectedWithdrawal(status) {
+  const s = normalizeWithdrawalStatus(status);
+  return WITHDRAWAL_REJECTED_STATUSES.some((x) => s.includes(x.replace(/é/g, 'e')) || s === x);
+}
+
+function isActiveWithdrawal(status) {
+  if (isRejectedWithdrawal(status)) return false;
+  const s = normalizeWithdrawalStatus(status);
+  if (!s) return true;
+  return (
+    ['pending', 'en_attente', 'approved', 'paid', 'payee', 'validate', 'valide', 'processed', 'complete'].includes(s)
+    || s.includes('pending')
+    || s.includes('attente')
+    || s.includes('paid')
+    || s.includes('pay')
+    || s.includes('valid')
+    || s.includes('approv')
+  );
+}
+
+function ordersAfterMarker(orders, marker) {
+  if (!marker?.created_at) return orders || [];
+  const t = new Date(marker.created_at).getTime();
   return (orders || []).filter((o) => new Date(o.created_at || 0).getTime() > t);
 }
 
 /**
- * Retrait par paliers de 10 nouvelles commandes depuis le dernier retrait.
+ * Retrait par paliers de 10 nouvelles commandes depuis le dernier retrait enregistré.
  * Totaux ventes / CA / commissions gagnées = cumulatif.
- * Commission disponible = uniquement depuis le dernier retrait payé.
+ * Solde disponible = commissions des commandes confirmées après le dernier retrait actif.
  */
 export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissionRate }) {
   const rate = Number(commissionRate) / 100;
@@ -135,12 +163,7 @@ export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissio
     (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
   );
 
-  const lastSubmitted = sorted.find((w) =>
-    WITHDRAWAL_SUBMITTED_STATUSES.includes((w.status || '').toLowerCase()),
-  );
-  const lastPaid = sorted.find((w) =>
-    WITHDRAWAL_PAID_STATUSES.includes((w.status || '').toLowerCase()),
-  );
+  const lastWithdrawal = sorted.find((w) => isActiveWithdrawal(w.status));
 
   const sumRevenue = (rows) => rows.reduce((s, o) => s + Number(o.total_amount || 0), 0);
 
@@ -148,9 +171,9 @@ export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissio
   const totalRevenue = sumRevenue(confirmed);
   const totalCommissions = totalRevenue * rate;
 
-  const newOrdersSinceWithdraw = ordersAfterMarker(confirmed, lastSubmitted).length;
-  const commissionOrders = ordersAfterMarker(confirmed, lastPaid, { useUpdatedAt: true });
-  const availableCommissions = sumRevenue(commissionOrders) * rate;
+  const ordersSinceWithdraw = ordersAfterMarker(confirmed, lastWithdrawal);
+  const newOrdersSinceWithdraw = ordersSinceWithdraw.length;
+  const availableCommissions = sumRevenue(ordersSinceWithdraw) * rate;
 
   const canWithdraw = newOrdersSinceWithdraw >= MIN_WITHDRAWAL_ORDERS && availableCommissions > 0;
 
@@ -162,6 +185,7 @@ export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissio
     newOrdersSinceWithdraw,
     ordersUntilWithdraw: Math.max(0, MIN_WITHDRAWAL_ORDERS - newOrdersSinceWithdraw),
     canWithdraw,
+    hasWithdrawalHistory: Boolean(lastWithdrawal),
   };
 }
 

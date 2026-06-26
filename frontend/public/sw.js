@@ -1,5 +1,5 @@
 // VSM Ambassador PWA — service worker with Web Push + offline shell
-const CACHE = 'vsm-amb-v9';
+const CACHE = 'vsm-amb-v10';
 const SHELL = [
   '/',
   '/index.html',
