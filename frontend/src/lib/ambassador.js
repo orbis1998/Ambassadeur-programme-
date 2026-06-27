@@ -189,6 +189,24 @@ export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissio
   };
 }
 
+const WITHDRAWAL_COLUMNS = 'id, ambassador_id, status, mobile_operator, msisdn, beneficiary_name, created_at, updated_at, admin_note';
+
+/** Charge l'historique retraits — RPC SECURITY DEFINER (prod = local), repli table directe. */
+export async function fetchAmbassadorWithdrawals(userId) {
+  if (!userId) return [];
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc('get_my_withdrawal_requests');
+  if (!rpcErr && Array.isArray(rpcData)) return rpcData;
+
+  const { data, error } = await supabase
+    .from('ambassador_withdrawal_requests')
+    .select(WITHDRAWAL_COLUMNS)
+    .eq('ambassador_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) console.warn('fetchAmbassadorWithdrawals', error.message);
+  return data || [];
+}
+
 export const MOBILE_OPERATORS = [
   { value: 'airtel', label: 'Airtel Money', color: '#e60000' },
   { value: 'mpesa', label: 'M-Pesa (Vodacom)', color: '#27ae60' },

@@ -1,5 +1,5 @@
 // VSM Ambassador PWA — service worker with Web Push + offline shell
-const CACHE = 'vsm-amb-v10';
+const CACHE = 'vsm-amb-v11';
 const SHELL = [
   '/',
   '/index.html',
@@ -26,6 +26,19 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/')) return;
+
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.status === 200 && req.url.startsWith(self.location.origin)) {
+          const clone = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
 
   if (req.mode === 'navigate') {
     event.respondWith(

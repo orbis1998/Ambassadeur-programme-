@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, computeWithdrawalStats } from '@/lib/ambassador';
+import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, computeWithdrawalStats, fetchAmbassadorWithdrawals } from '@/lib/ambassador';
 import { Wallet, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -29,9 +29,9 @@ export default function Withdraw() {
     (async () => {
       setLoading(true);
       const rate = await fetchCommissionRate();
-      const [{ data: orders }, { data: wRes }] = await Promise.all([
+      const [{ data: orders }, wRes] = await Promise.all([
         supabase.from('orders').select('total_amount, status, created_at').eq('ambassador_id', user.id),
-        supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
+        fetchAmbassadorWithdrawals(user.id),
       ]);
       const confirmed = (orders || []).filter((o) => isConfirmedStatus(o.status));
       const withdrawalStats = computeWithdrawalStats({
@@ -75,7 +75,6 @@ export default function Withdraw() {
         const { error: insErr } = await supabase.from('ambassador_withdrawal_requests').insert({
           ambassador_id: user.id, mobile_operator: op, msisdn: msisdn.trim(),
           beneficiary_name: beneficiary.trim(), status: 'pending',
-          amount: stats.available,
         });
         if (insErr) throw insErr;
         ok = true;

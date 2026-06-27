@@ -7,7 +7,7 @@ import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
   fetchCommissionRate, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
   isConfirmedStatus, isPendingStatus, isCancelledStatus,
-  computeWithdrawalStats,
+  computeWithdrawalStats, fetchAmbassadorWithdrawals,
 } from '@/lib/ambassador';
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
@@ -53,14 +53,13 @@ export default function Dashboard() {
         ordersQuery = ordersQuery.eq('ambassador_id', user.id);
       }
 
-      const [{ data: orders, error: oErr }, { data: links, error: lErr }, { data: wRes, error: wErr }] = await Promise.all([
+      const [{ data: orders, error: oErr }, { data: links, error: lErr }, wRes] = await Promise.all([
         ordersQuery,
         supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
-        supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }),
+        fetchAmbassadorWithdrawals(user.id),
       ]);
       if (oErr) console.warn('orders', oErr.message);
       if (lErr) console.warn('ambassador_links', lErr.message);
-      if (wErr) console.warn('withdrawals', wErr.message);
 
       const linkIds = (links || []).map((l) => l.id);
       let clicks = [];
