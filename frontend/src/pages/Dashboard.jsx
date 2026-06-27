@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
-  fetchCommissionRate, getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
+  getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
   isConfirmedStatus, isPendingStatus, isCancelledStatus,
   computeWithdrawalStats, fetchAmbassadorWithdrawals,
+  buildOrderRankMap, getOrderCommission,
 } from '@/lib/ambassador';
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
@@ -22,7 +23,6 @@ export default function Dashboard() {
   const { user, profile, application, promoCodes, trackingLink, loading: authLoading, userDataLoaded } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const [commissionRate, setRate] = useState(10);
   const [recent, setRecent] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [copied, setCopied] = useState(false);
@@ -38,9 +38,6 @@ export default function Dashboard() {
     let active = true;
     (async () => {
       setLoading(true);
-      const rate = await fetchCommissionRate();
-      if (!active) return;
-      setRate(rate);
 
       const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
       let ordersQuery = supabase
@@ -72,12 +69,11 @@ export default function Dashboard() {
       const ordersArr = (orders || []).filter((o) => !isCancelledStatus(o.status));
       const confirmed = ordersArr.filter((o) => isConfirmedStatus(o.status));
       const pending = ordersArr.filter((o) => isPendingStatus(o.status));
+      const rankMap = buildOrderRankMap(confirmed);
 
-      const totalRevenue = confirmed.reduce((s, o) => s + Number(o.total_amount || 0), 0);
       const withdrawalStats = computeWithdrawalStats({
         confirmedOrders: confirmed,
         withdrawals: wRes || [],
-        commissionRate: rate,
       });
 
       // This month
@@ -88,7 +84,7 @@ export default function Dashboard() {
       const allOrdersMonth = ordersArr.filter((o) => inMonth(o.created_at));
       const clicksMonth = clicks.filter((c) => inMonth(c.clicked_at));
       const revenueMonth = ordersMonth.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-      const commissionsMonth = revenueMonth * (rate / 100);
+      const commissionsMonth = ordersMonth.reduce((s, o) => s + getOrderCommission(o, rankMap), 0);
 
       const uniqueVisitorsKey = (c) => `${(c.referrer||'').toString().slice(0,80)}|${(c.user_agent||'').toString().slice(0,80)}`;
       const uniqueVisitors = new Set(clicks.map(uniqueVisitorsKey)).size;
@@ -118,7 +114,7 @@ export default function Dashboard() {
       setRecent(
         ordersArr.slice(0, 15).map((o) => ({
           ...o,
-          commission: isConfirmedStatus(o.status) ? Number(o.total_amount || 0) * (rate / 100) : 0,
+          commission: isConfirmedStatus(o.status) ? getOrderCommission(o, rankMap) : 0,
         })),
       );
       setWithdrawals(wRes || []);
@@ -159,7 +155,7 @@ export default function Dashboard() {
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Palier actuel</div>
             <div className="font-display text-lg font-bold">{tier.current.label}</div>
-            <div className="text-[11px] text-muted-foreground">+{tier.current.bonus}% commission bonus</div>
+            <div className="text-[11px] text-muted-foreground">{tier.current.rate}% commission</div>
           </div>
         </div>
       </header>
@@ -167,7 +163,7 @@ export default function Dashboard() {
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <StatCard icon={ShoppingCart} label="Ventes totales" value={loading ? '—' : stats.confirmedSales} sub={loading ? '' : `${stats.pendingSales} en attente`} testid="stat-sales" delay="stagger-1" />
-        <StatCard icon={TrendingUp} label="CA généré" value={loading ? '—' : formatFC(stats.totalRevenue)} sub={`${commissionRate}% commission`} testid="stat-revenue" delay="stagger-2" />
+        <StatCard icon={TrendingUp} label="CA généré" value={loading ? '—' : formatFC(stats.totalRevenue)} sub={`${tier.current.rate}% commission actuelle`} testid="stat-revenue" delay="stagger-2" />
         <StatCard icon={Wallet} label="Commissions gagnées" value={loading ? '—' : formatFC(stats.totalCommissions)} sub={loading ? '' : `Dispo : ${formatFC(stats.availableCommissions)}`} testid="stat-commissions" highlight delay="stagger-3" />
         <StatCard icon={MousePointerClick} label="Clics totaux" value={loading ? '—' : stats.totalClicks} sub={loading ? '' : `${stats.uniqueVisitors} visiteurs uniques`} testid="stat-clicks" delay="stagger-4" />
       </section>

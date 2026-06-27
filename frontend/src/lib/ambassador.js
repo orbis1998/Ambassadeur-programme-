@@ -42,21 +42,66 @@ export function isCancelledStatus(status) {
   return CANCELLED_ORDER_STATUSES.includes(normalizeOrderStatus(status));
 }
 
-// VSM Ambassador tiers — progressive commission boosts.
+// VSM Ambassador tiers — commission rate by cumulative confirmed orders (never reset).
 export const TIERS = [
-  { key: 'starter', label: 'Starter', min: 0, bonus: 0, color: '#a3a3a3' },
-  { key: 'bronze', label: 'Bronze', min: 5, bonus: 1, color: '#cd7f32' },
-  { key: 'silver', label: 'Silver', min: 15, bonus: 2, color: '#c0c0c0' },
-  { key: 'gold', label: 'Gold', min: 35, bonus: 3, color: '#ffb000' },
-  { key: 'elite', label: 'Elite', min: 75, bonus: 5, color: '#e10b2c' },
+  { key: 'starter', label: 'Starter', min: 0, max: 10, rate: 10, color: '#a3a3a3' },
+  { key: 'bronze', label: 'Bronze', min: 11, max: 14, rate: 11, color: '#cd7f32' },
+  { key: 'silver', label: 'Silver', min: 15, max: 34, rate: 13, color: '#c0c0c0' },
+  { key: 'gold', label: 'Gold', min: 35, max: 74, rate: 15, color: '#ffb000' },
+  { key: 'elite', label: 'Elite', min: 75, rate: 20, color: '#e10b2c' },
 ];
 
 export function getTier(confirmedSales) {
+  const sales = Math.max(0, Number(confirmedSales) || 0);
   let current = TIERS[0];
-  for (const t of TIERS) if (confirmedSales >= t.min) current = t;
+  for (const t of TIERS) if (sales >= t.min) current = t;
   const idx = TIERS.findIndex((t) => t.key === current.key);
   const next = TIERS[idx + 1] || null;
-  return { current, next, progress: next ? Math.min(100, ((confirmedSales - current.min) / (next.min - current.min)) * 100) : 100 };
+  // Barre alignée sur « X / Y ventes » (comme prod), pas sur la plage interne du palier.
+  const progress = next ? Math.min(100, (sales / next.min) * 100) : 100;
+  return { current, next, progress };
+}
+
+/** Taux appliqué à la N-ième commande confirmée (1-based). 11e commande = 11 %. */
+export function getCommissionRateForOrderIndex(orderIndex) {
+  const n = Math.max(1, Number(orderIndex) || 1);
+  for (const t of TIERS) {
+    if (n >= t.min && (t.max == null || n <= t.max)) return t.rate;
+  }
+  return TIERS[TIERS.length - 1].rate;
+}
+
+export function sortConfirmedOrders(orders) {
+  return (orders || []).slice().sort((a, b) => {
+    const da = new Date(a.created_at || 0).getTime();
+    const db = new Date(b.created_at || 0).getTime();
+    if (da !== db) return da - db;
+    return Number(a.id || 0) - Number(b.id || 0);
+  });
+}
+
+export function orderKey(order) {
+  if (order?.id != null) return String(order.id);
+  return `${order?.created_at || ''}|${order?.total_amount || 0}`;
+}
+
+/** Maps each confirmed order to its cumulative rank (1-based, by created_at). */
+export function buildOrderRankMap(confirmedOrders) {
+  const map = new Map();
+  sortConfirmedOrders(confirmedOrders).forEach((o, i) => {
+    map.set(orderKey(o), i + 1);
+  });
+  return map;
+}
+
+export function getOrderCommission(order, rankMap) {
+  const rank = rankMap.get(orderKey(order));
+  if (!rank) return 0;
+  return Number(order.total_amount || 0) * getCommissionRateForOrderIndex(rank) / 100;
+}
+
+function sumOrderCommissions(orders, rankMap) {
+  return (orders || []).reduce((s, o) => s + getOrderCommission(o, rankMap), 0);
 }
 
 export function getBadges(stats) {
@@ -156,9 +201,9 @@ function ordersAfterMarker(orders, marker) {
  * Totaux ventes / CA / commissions gagnées = cumulatif.
  * Solde disponible = commissions des commandes confirmées après le dernier retrait actif.
  */
-export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissionRate }) {
-  const rate = Number(commissionRate) / 100;
+export function computeWithdrawalStats({ confirmedOrders, withdrawals }) {
   const confirmed = confirmedOrders || [];
+  const rankMap = buildOrderRankMap(confirmed);
   const sorted = (withdrawals || []).slice().sort(
     (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
   );
@@ -169,11 +214,11 @@ export function computeWithdrawalStats({ confirmedOrders, withdrawals, commissio
 
   const totalConfirmedSales = confirmed.length;
   const totalRevenue = sumRevenue(confirmed);
-  const totalCommissions = totalRevenue * rate;
+  const totalCommissions = sumOrderCommissions(confirmed, rankMap);
 
   const ordersSinceWithdraw = ordersAfterMarker(confirmed, lastWithdrawal);
   const newOrdersSinceWithdraw = ordersSinceWithdraw.length;
-  const availableCommissions = sumRevenue(ordersSinceWithdraw) * rate;
+  const availableCommissions = sumOrderCommissions(ordersSinceWithdraw, rankMap);
 
   const canWithdraw = newOrdersSinceWithdraw >= MIN_WITHDRAWAL_ORDERS && availableCommissions > 0;
 

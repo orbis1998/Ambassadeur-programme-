@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { fetchCommissionRate, formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, computeWithdrawalStats, fetchAmbassadorWithdrawals } from '@/lib/ambassador';
+import { formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, computeWithdrawalStats, fetchAmbassadorWithdrawals } from '@/lib/ambassador';
 import { Wallet, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -28,16 +28,14 @@ export default function Withdraw() {
     let active = true;
     (async () => {
       setLoading(true);
-      const rate = await fetchCommissionRate();
       const [{ data: orders }, wRes] = await Promise.all([
-        supabase.from('orders').select('total_amount, status, created_at').eq('ambassador_id', user.id),
+        supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id),
         fetchAmbassadorWithdrawals(user.id),
       ]);
       const confirmed = (orders || []).filter((o) => isConfirmedStatus(o.status));
       const withdrawalStats = computeWithdrawalStats({
         confirmedOrders: confirmed,
         withdrawals: wRes || [],
-        commissionRate: rate,
       });
       if (!active) return;
       setStats({
