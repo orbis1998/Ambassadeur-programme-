@@ -91,7 +91,11 @@ export default function Login() {
         setError('Identifiants incorrects.');
         return;
       }
-      navigate(routeAfterAuth(me?.profile, me?.application, { isAdmin: me?.isAdmin }), { replace: true });
+      if (!me) {
+        setError('Connexion réussie mais profil introuvable — réessayez.');
+        return;
+      }
+      navigate(routeAfterAuth(me.profile, me.application, { isAdmin: me.isAdmin }), { replace: true });
     } catch (err) {
       setError(err.message || 'Connexion impossible.');
     } finally {

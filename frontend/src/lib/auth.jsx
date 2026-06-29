@@ -51,7 +51,7 @@ export function AuthProvider({ children }) {
     if (gen !== loadGen.current) return null;
 
     if (pErr) console.warn('profiles', pErr.message);
-    if (aErr) console.warn('ambassador_applications', aErr.message);
+    if (aErr) console.warn('get_my_ambassador_applications', aErr.message);
     if (prErr) console.warn('promo_codes', prErr.message);
     if (lErr) console.warn('ambassador_links', lErr.message);
     if (adminErr) console.warn('is_admin', adminErr.message);
@@ -70,6 +70,16 @@ export function AuthProvider({ children }) {
 
     return { profile: p, application: app, promo_codes: promos || [], tracking_link: link, isAdmin: adminUser };
   }, []);
+
+  const loadUserDataStable = useCallback(async (userId, { silent = false, retries = 3 } = {}) => {
+    let last = null;
+    for (let i = 0; i < retries; i += 1) {
+      last = await loadUserData(userId, { silent: silent || i > 0 });
+      if (last) return last;
+      await new Promise((resolve) => setTimeout(resolve, 100 * (i + 1)));
+    }
+    return last;
+  }, [loadUserData]);
 
   useEffect(() => {
     let mounted = true;
@@ -95,7 +105,7 @@ export function AuthProvider({ children }) {
       setSession(newSession);
 
       if (newSession?.user) {
-        if (event === 'TOKEN_REFRESHED') {
+        if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
           loadUserData(newSession.user.id, { silent: true });
           return;
         }
@@ -118,9 +128,9 @@ export function AuthProvider({ children }) {
 
   const refresh = useCallback(async () => {
     const { data: { session: s } } = await supabase.auth.getSession();
-    if (s?.user) return loadUserData(s.user.id);
+    if (s?.user) return loadUserDataStable(s.user.id, { silent: true });
     return null;
-  }, [loadUserData]);
+  }, [loadUserDataStable]);
 
   const signIn = useCallback(async (email, password) => {
     const result = await supabase.auth.signInWithPassword({ email, password });
@@ -129,11 +139,11 @@ export function AuthProvider({ children }) {
     const s = result.data?.session;
     if (s) {
       setSession(s);
-      const me = await loadUserData(s.user.id);
+      const me = await loadUserDataStable(s.user.id);
       return { ...result, me };
     }
     return { ...result, me: null };
-  }, [loadUserData]);
+  }, [loadUserDataStable]);
 
   const signUp = useCallback(async (email, password, metadata = {}) => {
     return supabase.auth.signUp({ email, password, options: { data: metadata } });

@@ -80,7 +80,7 @@ function RequireAuth({ children, requireApproved = false }) {
   if (isAdmin && requireApproved) return <Navigate to="/admin" replace />;
   if (requireApproved && !isApproved) {
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/apply" replace />;
   }
   return children;
 }
