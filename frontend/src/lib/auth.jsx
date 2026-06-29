@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
+import { isAmbassadorProgramAdmin } from './roles';
 
 const AuthCtx = createContext(null);
 
@@ -143,6 +144,7 @@ export function AuthProvider({ children }) {
 
   const status = (application?.status || '').toLowerCase();
   const loading = initializing || (session?.user && !userDataLoaded);
+  const isAdmin = isAmbassadorProgramAdmin(profile);
 
   const value = {
     session,
@@ -151,6 +153,7 @@ export function AuthProvider({ children }) {
     application,
     promoCodes,
     trackingLink,
+    isAdmin,
     isApproved: status === 'approved',
     isPending: status === 'pending',
     isRejected: status === 'rejected',
@@ -171,9 +174,16 @@ export const useAuth = () => {
   return ctx;
 };
 
-export function routeAfterAuth(application) {
+export function routeAfterAuth(profile, application) {
+  if (isAmbassadorProgramAdmin(profile)) return '/admin';
   const status = (application?.status || '').toLowerCase();
   if (status === 'approved') return '/dashboard';
   if (status === 'pending' || status === 'rejected') return '/pending';
+  if (profile) return '/login';
   return '/login';
+}
+
+/** @deprecated use routeAfterAuth(profile, application) */
+export function routeAfterLogin(application) {
+  return routeAfterAuth(null, application);
 }

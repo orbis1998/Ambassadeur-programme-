@@ -21,16 +21,19 @@ const PROMO_TEXTS = [
 export default function Resources() {
   const [products, setProducts] = useState([]);
   const [hero, setHero] = useState([]);
+  const [marketing, setMarketing] = useState([]);
   const [copiedIdx, setCopiedIdx] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const [{ data: p }, { data: s }] = await Promise.all([
+      const [{ data: p }, { data: s }, { data: m }] = await Promise.all([
         supabase.from('products').select('id, name, image_url, images, price, category').eq('is_active', true).limit(12),
         supabase.from('settings').select('key, value').like('key', 'hero_%_image'),
+        supabase.from('ambassador_resources').select('*').eq('published', true).order('sort_order', { ascending: true }),
       ]);
       setProducts(p || []);
       setHero((s || []).map((x) => x.value));
+      setMarketing(m || []);
     })();
   }, []);
 
@@ -59,6 +62,31 @@ export default function Resources() {
                 </div>
               </a>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Ressources publiées par l'admin programme ambassadeur */}
+      {marketing.length > 0 && (
+        <section className="vsm-card p-5 sm:p-6 mb-6" data-testid="marketing-resources-section">
+          <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> Ressources ambassadeur</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {marketing.map((r) => {
+              const thumb = r.thumbnail_url || (r.resource_type === 'image' || r.resource_type === 'banner' ? r.url : null);
+              const Icon = r.resource_type === 'video' ? Video : FileText;
+              return (
+                <a key={r.id} href={r.url} target="_blank" rel="noopener noreferrer" download className="vsm-card p-4 block hover:border-primary/40 transition" data-testid={`mkt-resource-${r.id}`}>
+                  {thumb ? (
+                    <img src={thumb} alt={r.title} className="w-full h-32 object-cover rounded-sm mb-3" />
+                  ) : (
+                    <div className="h-32 bg-secondary rounded-sm flex items-center justify-center mb-3"><Icon className="w-8 h-8 text-muted-foreground" /></div>
+                  )}
+                  <div className="font-semibold text-sm">{r.title}</div>
+                  {r.description && <div className="text-xs text-muted-foreground mt-1">{r.description}</div>}
+                  <div className="text-[10px] uppercase tracking-wider text-primary mt-2">{r.resource_type}</div>
+                </a>
+              );
+            })}
           </div>
         </section>
       )}

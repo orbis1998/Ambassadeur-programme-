@@ -16,10 +16,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS)
   }
 }
 
-function routeAfterLogin(application) {
-  return routeAfterAuth(application);
-}
-
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -95,7 +91,7 @@ export default function Login() {
         setError('Identifiants incorrects.');
         return;
       }
-      navigate(routeAfterLogin(me?.application), { replace: true });
+      navigate(routeAfterAuth(me?.profile, me?.application), { replace: true });
     } catch (err) {
       setError(err.message || 'Connexion impossible.');
     } finally {
@@ -113,10 +109,9 @@ export default function Login() {
             </Link>
           </div>
 
+          <img src={LOGIN_PAGE_LOGO} alt="" className="h-16 mx-auto mb-5" data-testid="login-page-icon" />
+
           <div className="vsm-card p-7 sm:p-8 animate-fade-up stagger-1" data-testid="login-card">
-            <div className="text-center mb-5">
-              <img src={LOGIN_PAGE_LOGO} alt="" className="h-16 mx-auto" data-testid="login-page-icon" />
-            </div>
             <h1 className="text-2xl font-display font-bold mb-1">Connexion ambassadeur</h1>
             <p className="text-sm text-muted-foreground mb-6">Accédez à votre espace VSM.</p>
 
@@ -173,12 +168,12 @@ export default function Login() {
               </Link>
             </p>
           </div>
-
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            © VSM Collection — Vivre avec style.
-          </p>
         </div>
       </div>
+
+      <p className="text-center text-xs text-muted-foreground mt-6 pb-6">
+        © VSM Collection — Vivre avec style.
+      </p>
     </div>
   );
 }
