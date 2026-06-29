@@ -45,6 +45,7 @@ function LoginRoute() {
     if (isAdmin) return <Navigate to="/admin" replace />;
     if (isApproved) return <Navigate to="/dashboard" replace />;
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
+    return <Navigate to="/apply" replace />;
   }
   if (user && !userDataLoaded) return <Splash />;
   return <Login />;

@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
 
     const [{ data: p, error: pErr }, { data: apps, error: aErr }, { data: promos, error: prErr }, { data: links, error: lErr }, { data: adminRpc, error: adminErr }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('ambassador_applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.rpc('get_my_ambassador_applications'),
       supabase.from('promo_codes').select('*').eq('ambassador_id', userId).order('created_at', { ascending: false }),
       supabase.from('ambassador_links').select('*').eq('ambassador_id', userId).order('created_at', { ascending: false }),
       supabase.rpc('is_admin'),
@@ -188,7 +188,7 @@ export function routeAfterAuth(profile, application, options = {}) {
   const status = (application?.status || '').toLowerCase();
   if (status === 'approved') return '/dashboard';
   if (status === 'pending' || status === 'rejected') return '/pending';
-  return '/login';
+  return '/apply';
 }
 
 /** @deprecated use routeAfterAuth(profile, application) */
