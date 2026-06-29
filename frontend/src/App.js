@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import PwaPushBootstrap from '@/components/PwaPushBootstrap';
@@ -28,6 +28,8 @@ import AdminNotifications from '@/admin/pages/AdminNotifications';
 import AdminAuditLog from '@/admin/pages/AdminAuditLog';
 import '@/App.css';
 import { OPENING_LOGO } from '@/constants/branding';
+
+const AmbassadorLanding = lazy(() => import('@/pages/landing/AmbassadorLanding'));
 
 function Splash() {
   return (
@@ -88,6 +90,9 @@ function RequireAuth({ children, requireApproved = false }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/ambassadeur" element={<Suspense fallback={<Splash />}><AmbassadorLanding /></Suspense>} />
+      <Route path="/programme-ambassadeur" element={<Navigate to="/ambassadeur" replace />} />
+      <Route path="/ambassador" element={<Navigate to="/ambassadeur" replace />} />
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/r/:slug" element={<TrackingRedirect />} />
       <Route path="/login" element={<LoginRoute />} />
