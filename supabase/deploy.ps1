@@ -24,6 +24,7 @@ npx supabase secrets set `
   "VAPID_SUBJECT=$($env:VAPID_SUBJECT)" `
   "WEBHOOK_SECRET=$env:WEBHOOK_SECRET" `
   "SUPABASE_URL=$env:SUPABASE_URL" `
+  "SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY" `
   "SUPABASE_SERVICE_ROLE_KEY=$env:SUPABASE_SERVICE_KEY" `
   --project-ref $ProjectRef
 

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import * as webpush from "jsr:@negrel/webpush@0.5.0";
 
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
@@ -8,11 +9,12 @@ const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const svcHeaders = {
-  apikey: SUPABASE_SERVICE_ROLE_KEY,
-  Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-  "Content-Type": "application/json",
-};
+function adminClient() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 function base64UrlToBytes(b64: string): Uint8Array {
   const pad = "=".repeat((4 - (b64.length % 4)) % 4);
@@ -53,7 +55,7 @@ async function loadVapidKeyPair(publicB64: string, privatePem: string): Promise<
 
 let appServerPromise: Promise<webpush.ApplicationServer> | null = null;
 
-function getAppServer(): Promise<webpush.ApplicationServer> | null {
+async function getAppServer(): Promise<webpush.ApplicationServer | null> {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return null;
   if (!appServerPromise) {
     appServerPromise = loadVapidKeyPair(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY).then((vapidKeys) =>
@@ -63,48 +65,70 @@ function getAppServer(): Promise<webpush.ApplicationServer> | null {
       })
     );
   }
-  return appServerPromise;
+  try {
+    return await appServerPromise;
+  } catch (err) {
+    console.error("vapid_load_failed", err);
+    appServerPromise = null;
+    return null;
+  }
 }
 
-async function listPushSubscriptions(userId: string) {
-  const prefix = `push_sub_${userId}_`;
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/settings?select=key,value&key=like.${encodeURIComponent(`${prefix}*`)}`,
-    { headers: svcHeaders },
-  );
-  if (!res.ok) return [];
-  const rows = await res.json();
-  const out: { key: string; subscription: PushSubscription }[] = [];
-  for (const row of rows ?? []) {
+type StoredSub = { key: string; subscription: Record<string, unknown> };
+
+function normalizeSubscription(raw: Record<string, unknown>) {
+  const keys = raw.keys as Record<string, string> | undefined;
+  const endpoint = raw.endpoint;
+  if (typeof endpoint !== "string" || !keys?.p256dh || !keys?.auth) return null;
+  return {
+    endpoint,
+    expirationTime: (raw.expirationTime as number | null | undefined) ?? null,
+    keys: { p256dh: String(keys.p256dh), auth: String(keys.auth) },
+  };
+}
+
+async function listPushSubscriptions(userId: string): Promise<{ subs: StoredSub[]; error?: string }> {
+  const admin = adminClient();
+  if (!admin) return { subs: [], error: "missing_supabase_service_role" };
+
+  const { data, error } = await admin.rpc("list_user_push_subscriptions", { p_user_id: userId });
+  if (error) {
+    console.error("list_user_push_subscriptions", error);
+    return { subs: [], error: error.message };
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  const subs: StoredSub[] = [];
+  for (const row of rows) {
+    const key = String(row?.setting_key ?? row?.key ?? "");
+    let subscription: Record<string, unknown> | null = null;
     try {
-      const parsed = JSON.parse(row.value ?? "{}");
-      if (parsed.subscription?.endpoint) {
-        out.push({ key: row.key, subscription: parsed.subscription as PushSubscription });
-      }
+      const parsed = JSON.parse(String(row?.setting_value ?? row?.value ?? "{}"));
+      subscription = (parsed?.subscription ?? parsed) as Record<string, unknown>;
     } catch {
-      /* skip malformed */
+      subscription = null;
+    }
+    if (key && subscription && normalizeSubscription(subscription)) {
+      subs.push({ key, subscription });
     }
   }
-  return out;
+  return { subs };
 }
 
 async function deleteSubscription(key: string) {
-  await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${encodeURIComponent(key)}`, {
-    method: "DELETE",
-    headers: svcHeaders,
-  });
+  const admin = adminClient();
+  if (!admin) return;
+  await admin.from("settings").delete().eq("key", key);
 }
 
-async function markOutbox(outboxId: number, error: string | null, sent: number) {
+async function markOutbox(outboxId: number, error: string | null) {
   if (!outboxId) return;
-  await fetch(`${SUPABASE_URL}/rest/v1/push_outbox?id=eq.${outboxId}`, {
-    method: "PATCH",
-    headers: svcHeaders,
-    body: JSON.stringify({
-      processed_at: new Date().toISOString(),
-      error: error ?? (sent > 0 ? null : "no_active_subscription"),
-    }),
-  });
+  const admin = adminClient();
+  if (!admin) return;
+  await admin.from("push_outbox").update({
+    processed_at: new Date().toISOString(),
+    error,
+  }).eq("id", outboxId);
 }
 
 async function processOutboxRecord(record: Record<string, unknown>) {
@@ -120,41 +144,83 @@ async function processOutboxRecord(record: Record<string, unknown>) {
 
   const appServer = await getAppServer();
   if (!appServer) {
-    if (outboxId) await markOutbox(outboxId, "vapid_not_configured", 0);
+    if (outboxId) await markOutbox(outboxId, "vapid_not_configured");
     return { ok: false, error: "vapid_not_configured", sent: 0 };
   }
 
-  const subs = await listPushSubscriptions(userId);
+  const { subs, error: listError } = await listPushSubscriptions(userId);
   if (!subs.length) {
-    if (outboxId) await markOutbox(outboxId, "no_active_subscription", 0);
-    return { ok: true, sent: 0, error: "no_active_subscription" };
+    const err = listError ?? "no_active_subscription";
+    if (outboxId) await markOutbox(outboxId, err);
+    return { ok: true, sent: 0, subscriptions_found: 0, error: err };
   }
 
-  const payload = JSON.stringify({
-    title,
-    body,
-    url,
-    icon: "/icons/image_1782342973184.jpeg",
-  });
+  const payload = JSON.stringify({ title, body, url, icon: "/icons/image_1782342973184.jpeg" });
   let sent = 0;
+  const failures: string[] = [];
 
   for (const s of subs) {
+    const normalized = normalizeSubscription(s.subscription);
+    if (!normalized) {
+      failures.push(`${s.key}:invalid_shape`);
+      continue;
+    }
     try {
-      const sub = appServer.subscribe(s.subscription);
-      await sub.pushMessage(payload, { urgency: webpush.Urgency.High });
+      const sub = appServer.subscribe(normalized);
+      await sub.pushTextMessage(payload, { urgency: webpush.Urgency.High });
       sent += 1;
     } catch (err: unknown) {
       const status = (err as { status?: number; statusCode?: number }).status ??
         (err as { statusCode?: number }).statusCode;
+      const msg = String((err as Error)?.message ?? err).slice(0, 120);
+      failures.push(`${s.key}:${status ?? "err"}:${msg}`);
       if (status === 404 || status === 410) {
         await deleteSubscription(s.key);
       }
-      console.warn("webpush failed", err);
+      console.warn("webpush failed", s.key, err);
     }
   }
 
-  if (outboxId) await markOutbox(outboxId, sent > 0 ? null : "delivery_failed", sent);
-  return { ok: true, sent, subscriptions: subs.length };
+  const outboxError = sent > 0 ? null : (failures[0] ?? "delivery_failed");
+  if (outboxId) await markOutbox(outboxId, outboxError);
+
+  return {
+    ok: true,
+    sent,
+    subscriptions_found: subs.length,
+    failures: failures.slice(0, 5),
+    error: sent > 0 ? null : outboxError,
+  };
+}
+
+async function healthPayload() {
+  const admin = adminClient();
+  let pushSubs = 0;
+  let serviceRoleOk = false;
+  let serviceRoleError: string | undefined;
+  if (admin) {
+    const { count, error } = await admin
+      .from("settings")
+      .select("*", { count: "exact", head: true })
+      .like("key", "push_sub_%");
+    serviceRoleOk = !error;
+    serviceRoleError = error?.message;
+    pushSubs = count ?? 0;
+  }
+  let vapidLoads = false;
+  if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    vapidLoads = (await getAppServer()) != null;
+  }
+  return {
+    ok: true,
+    vapid_configured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
+    vapid_loads: vapidLoads,
+    webhook_secret_configured: !!WEBHOOK_SECRET,
+    service_role_configured: !!SUPABASE_SERVICE_ROLE_KEY,
+    service_role_ok: serviceRoleOk,
+    service_role_error: serviceRoleError,
+    push_subscriptions_total: pushSubs,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -168,14 +234,9 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === "GET") {
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        vapid_configured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
-        webhook_secret_configured: !!WEBHOOK_SECRET,
-      }),
-      { headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify(await healthPayload()), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   if (req.method !== "POST") {

@@ -57,6 +57,7 @@ def main() -> None:
         f"VAPID_SUBJECT={os.environ.get('VAPID_SUBJECT', 'mailto:contact@vsmcollection.com')}",
         f"WEBHOOK_SECRET={webhook_secret}",
         f"SUPABASE_URL={supabase_url}",
+        f"SUPABASE_ANON_KEY={os.environ.get('SUPABASE_ANON_KEY', '')}",
         f"SUPABASE_SERVICE_ROLE_KEY={service_key}",
         "--project-ref", PROJECT_REF,
     ]
