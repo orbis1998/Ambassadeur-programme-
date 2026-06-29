@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
   const [application, setApplication] = useState(null);
   const [promoCodes, setPromoCodes] = useState([]);
   const [trackingLink, setTrackingLink] = useState(null);
+  const [adminFlag, setAdminFlag] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [userDataLoaded, setUserDataLoaded] = useState(false);
   const loadGen = useRef(0);
@@ -31,6 +32,7 @@ export function AuthProvider({ children }) {
       setApplication(null);
       setPromoCodes([]);
       setTrackingLink(null);
+      setAdminFlag(false);
       setUserDataLoaded(true);
       return null;
     }
@@ -38,11 +40,12 @@ export function AuthProvider({ children }) {
     const gen = ++loadGen.current;
     if (!silent) setUserDataLoaded(false);
 
-    const [{ data: p, error: pErr }, { data: apps, error: aErr }, { data: promos, error: prErr }, { data: links, error: lErr }] = await Promise.all([
+    const [{ data: p, error: pErr }, { data: apps, error: aErr }, { data: promos, error: prErr }, { data: links, error: lErr }, { data: adminRpc, error: adminErr }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('ambassador_applications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('promo_codes').select('*').eq('ambassador_id', userId).order('created_at', { ascending: false }),
       supabase.from('ambassador_links').select('*').eq('ambassador_id', userId).order('created_at', { ascending: false }),
+      supabase.rpc('is_admin'),
     ]);
 
     if (gen !== loadGen.current) return null;
@@ -51,18 +54,21 @@ export function AuthProvider({ children }) {
     if (aErr) console.warn('ambassador_applications', aErr.message);
     if (prErr) console.warn('promo_codes', prErr.message);
     if (lErr) console.warn('ambassador_links', lErr.message);
+    if (adminErr) console.warn('is_admin', adminErr.message);
 
     const app = pickApplication(apps);
     const linkRows = links || [];
     const link = linkRows.find((l) => l.active !== false) || linkRows[0] || null;
+    const adminUser = isAmbassadorProgramAdmin(p) || adminRpc === true;
 
     setProfile(p || null);
     setApplication(app);
     setPromoCodes(promos || []);
     setTrackingLink(link);
+    setAdminFlag(adminUser);
     setUserDataLoaded(true);
 
-    return { profile: p, application: app, promo_codes: promos || [], tracking_link: link };
+    return { profile: p, application: app, promo_codes: promos || [], tracking_link: link, isAdmin: adminUser };
   }, []);
 
   useEffect(() => {
@@ -99,6 +105,7 @@ export function AuthProvider({ children }) {
         setApplication(null);
         setPromoCodes([]);
         setTrackingLink(null);
+        setAdminFlag(false);
         setUserDataLoaded(true);
       }
     });
@@ -139,12 +146,13 @@ export function AuthProvider({ children }) {
     setApplication(null);
     setPromoCodes([]);
     setTrackingLink(null);
+    setAdminFlag(false);
     setUserDataLoaded(true);
   }, []);
 
   const status = (application?.status || '').toLowerCase();
   const loading = initializing || (session?.user && !userDataLoaded);
-  const isAdmin = isAmbassadorProgramAdmin(profile);
+  const isAdmin = adminFlag || isAmbassadorProgramAdmin(profile);
 
   const value = {
     session,
@@ -174,12 +182,12 @@ export const useAuth = () => {
   return ctx;
 };
 
-export function routeAfterAuth(profile, application) {
-  if (isAmbassadorProgramAdmin(profile)) return '/admin';
+export function routeAfterAuth(profile, application, options = {}) {
+  const isAdmin = options.isAdmin ?? isAmbassadorProgramAdmin(profile);
+  if (isAdmin) return '/admin';
   const status = (application?.status || '').toLowerCase();
   if (status === 'approved') return '/dashboard';
   if (status === 'pending' || status === 'rejected') return '/pending';
-  if (profile) return '/login';
   return '/login';
 }
 

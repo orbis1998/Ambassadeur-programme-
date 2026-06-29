@@ -39,13 +39,14 @@ function Splash() {
 
 /** Login page — admin → /admin ; ambassadeur → dashboard ou pending */
 function LoginRoute() {
-  const { user, loading, isAdmin, isApproved, isPending, isRejected } = useAuth();
+  const { user, loading, isAdmin, isApproved, isPending, isRejected, userDataLoaded } = useAuth();
   if (loading) return <Splash />;
-  if (user) {
+  if (user && userDataLoaded) {
     if (isAdmin) return <Navigate to="/admin" replace />;
     if (isApproved) return <Navigate to="/dashboard" replace />;
     if (isPending || isRejected) return <Navigate to="/pending" replace />;
   }
+  if (user && !userDataLoaded) return <Splash />;
   return <Login />;
 }
 

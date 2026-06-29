@@ -228,18 +228,17 @@ export async function globalSearch(query) {
 }
 
 export async function enqueuePushNotification({ userIds, title, body, url = '/dashboard' }) {
-  const rows = (userIds || []).map((uid) => ({
-    user_id: uid,
-    title,
-    body,
-    url,
-    event_type: 'admin_broadcast',
-    payload: { source: 'admin_dashboard' },
-  }));
-  if (!rows.length) return { error: null };
-  const { error } = await supabase.from('push_outbox').insert(rows);
-  if (!error) await logAudit('notification_send', 'push', null, { count: rows.length, title });
-  return { error };
+  const ids = (userIds || []).filter(Boolean);
+  if (!ids.length) return { error: null, stats: null };
+  const { data, error } = await supabase.rpc('admin_broadcast_push', {
+    p_user_ids: ids,
+    p_title: title,
+    p_body: body,
+    p_url: url,
+  });
+  const stats = data && typeof data === 'object' ? data : { queued: data ?? ids.length };
+  if (!error) await logAudit('notification_send', 'push', null, { ...stats, title });
+  return { error, stats };
 }
 
 export function computeAmbassadorMetrics(orders, withdrawals) {

@@ -43,10 +43,26 @@ export default function AdminNotifications() {
     setSending(true);
     setMessage('');
     const userIds = await resolveRecipients();
-    const { error } = await enqueuePushNotification({ userIds, title, body });
+    const { error, stats } = await enqueuePushNotification({ userIds, title, body });
     setSending(false);
-    if (error) setMessage(`Erreur : ${error.message}`);
-    else setMessage(`${userIds.length} notification(s) en file d'attente push.`);
+    if (error) {
+      setMessage(`Erreur : ${error.message}`);
+      return;
+    }
+    const queued = stats?.queued ?? userIds.length;
+    const withSubs = stats?.with_subscriptions ?? 0;
+    const withoutSubs = stats?.without_subscriptions ?? Math.max(queued - withSubs, 0);
+    if (withSubs === 0) {
+      setMessage(
+        `${queued} ambassadeur(s) ciblé(s), mais aucun n'a activé les notifications push sur son appareil. Demandez-leur d'ouvrir l'app en PWA et d'accepter les notifications.`,
+      );
+    } else if (withoutSubs > 0) {
+      setMessage(
+        `Push envoyé à ${withSubs}/${queued} ambassadeur(s) avec notifications activées. ${withoutSubs} sans abonnement push.`,
+      );
+    } else {
+      setMessage(`Push envoyé à ${withSubs} ambassadeur(s).`);
+    }
   };
 
   return (

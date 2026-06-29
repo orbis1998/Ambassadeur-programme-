@@ -125,6 +125,11 @@ async function processOutboxRecord(record: Record<string, unknown>) {
   }
 
   const subs = await listPushSubscriptions(userId);
+  if (!subs.length) {
+    if (outboxId) await markOutbox(outboxId, "no_active_subscription", 0);
+    return { ok: true, sent: 0, error: "no_active_subscription" };
+  }
+
   const payload = JSON.stringify({
     title,
     body,
@@ -148,8 +153,8 @@ async function processOutboxRecord(record: Record<string, unknown>) {
     }
   }
 
-  if (outboxId) await markOutbox(outboxId, null, sent);
-  return { ok: true, sent };
+  if (outboxId) await markOutbox(outboxId, sent > 0 ? null : "delivery_failed", sent);
+  return { ok: true, sent, subscriptions: subs.length };
 }
 
 Deno.serve(async (req) => {
