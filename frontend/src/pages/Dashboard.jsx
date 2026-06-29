@@ -1,8 +1,9 @@
 /* eslint-disable react/no-unescaped-entities */
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { useDashboardRealtime } from '@/hooks/useDashboardRealtime';
 import {
   ambassadorBadgeCode, buildAmbassadorLink, formatFC, relativeDate,
   getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
@@ -33,95 +34,97 @@ export default function Dashboard() {
   const slug = trackingLink?.slug || badge;
   const refLink = buildAmbassadorLink(slug);
 
+  const loadDashboardData = useCallback(async () => {
+    if (!user?.id) return;
+
+    setLoading(true);
+
+    const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
+    let ordersQuery = supabase
+      .from('orders')
+      .select('id, total_amount, status, created_at, customer_name, ambassador_id, promo_code_id')
+      .order('created_at', { ascending: false });
+    if (promoIds.length) {
+      ordersQuery = ordersQuery.or(`ambassador_id.eq.${user.id},promo_code_id.in.(${promoIds.join(',')})`);
+    } else {
+      ordersQuery = ordersQuery.eq('ambassador_id', user.id);
+    }
+
+    const [{ data: orders, error: oErr }, { data: links, error: lErr }, wRes] = await Promise.all([
+      ordersQuery,
+      supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
+      fetchAmbassadorWithdrawals(user.id),
+    ]);
+    if (oErr) console.warn('orders', oErr.message);
+    if (lErr) console.warn('ambassador_links', lErr.message);
+
+    const linkIds = (links || []).map((l) => l.id);
+    let clicks = [];
+    if (linkIds.length) {
+      const { data: c, error: cErr } = await supabase.from('ambassador_clicks').select('id, link_id, clicked_at, referrer, user_agent').in('link_id', linkIds).order('clicked_at', { ascending: false }).limit(500);
+      if (cErr) console.warn('ambassador_clicks', cErr.message);
+      clicks = c || [];
+    }
+
+    const ordersArr = (orders || []).filter((o) => !isCancelledStatus(o.status));
+    const confirmed = ordersArr.filter((o) => isConfirmedStatus(o.status));
+    const pending = ordersArr.filter((o) => isPendingStatus(o.status));
+    const rankMap = buildOrderRankMap(confirmed);
+
+    const withdrawalStats = computeWithdrawalStats({
+      confirmedOrders: confirmed,
+      withdrawals: wRes || [],
+    });
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const inMonth = (iso) => iso && new Date(iso) >= monthStart;
+    const ordersMonth = confirmed.filter((o) => inMonth(o.created_at));
+    const allOrdersMonth = ordersArr.filter((o) => inMonth(o.created_at));
+    const clicksMonth = clicks.filter((c) => inMonth(c.clicked_at));
+    const revenueMonth = ordersMonth.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+    const commissionsMonth = ordersMonth.reduce((s, o) => s + getOrderCommission(o, rankMap), 0);
+
+    const uniqueVisitorsKey = (c) => `${(c.referrer||'').toString().slice(0,80)}|${(c.user_agent||'').toString().slice(0,80)}`;
+    const uniqueVisitors = new Set(clicks.map(uniqueVisitorsKey)).size;
+
+    setStats({
+      confirmedSales: withdrawalStats.totalConfirmedSales,
+      pendingSales: pending.length,
+      totalSales: ordersArr.length,
+      totalRevenue: withdrawalStats.totalRevenue,
+      totalCommissions: withdrawalStats.totalCommissions,
+      availableCommissions: withdrawalStats.availableCommissions,
+      newOrdersSinceWithdraw: withdrawalStats.newOrdersSinceWithdraw,
+      ordersUntilWithdraw: withdrawalStats.ordersUntilWithdraw,
+      canWithdraw: withdrawalStats.canWithdraw,
+      totalClicks: clicks.length,
+      uniqueVisitors,
+      month: {
+        clicks: clicksMonth.length,
+        orders: allOrdersMonth.length,
+        confirmedOrders: ordersMonth.length,
+        revenue: revenueMonth,
+        commissions: commissionsMonth,
+      },
+      isTopMonthly: false,
+    });
+    setRecent(
+      ordersArr.slice(0, 15).map((o) => ({
+        ...o,
+        commission: isConfirmedStatus(o.status) ? getOrderCommission(o, rankMap) : 0,
+      })),
+    );
+    setWithdrawals(wRes || []);
+    setLoading(false);
+  }, [user?.id, promoCodes]);
+
   useEffect(() => {
     if (authLoading || !userDataLoaded || !user?.id) return;
-    let active = true;
-    (async () => {
-      setLoading(true);
+    loadDashboardData();
+  }, [authLoading, userDataLoaded, user?.id, loadDashboardData]);
 
-      const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
-      let ordersQuery = supabase
-        .from('orders')
-        .select('id, total_amount, status, created_at, customer_name, ambassador_id, promo_code_id')
-        .order('created_at', { ascending: false });
-      if (promoIds.length) {
-        ordersQuery = ordersQuery.or(`ambassador_id.eq.${user.id},promo_code_id.in.(${promoIds.join(',')})`);
-      } else {
-        ordersQuery = ordersQuery.eq('ambassador_id', user.id);
-      }
-
-      const [{ data: orders, error: oErr }, { data: links, error: lErr }, wRes] = await Promise.all([
-        ordersQuery,
-        supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
-        fetchAmbassadorWithdrawals(user.id),
-      ]);
-      if (oErr) console.warn('orders', oErr.message);
-      if (lErr) console.warn('ambassador_links', lErr.message);
-
-      const linkIds = (links || []).map((l) => l.id);
-      let clicks = [];
-      if (linkIds.length) {
-        const { data: c, error: cErr } = await supabase.from('ambassador_clicks').select('id, link_id, clicked_at, referrer, user_agent').in('link_id', linkIds).order('clicked_at', { ascending: false }).limit(500);
-        if (cErr) console.warn('ambassador_clicks', cErr.message);
-        clicks = c || [];
-      }
-
-      const ordersArr = (orders || []).filter((o) => !isCancelledStatus(o.status));
-      const confirmed = ordersArr.filter((o) => isConfirmedStatus(o.status));
-      const pending = ordersArr.filter((o) => isPendingStatus(o.status));
-      const rankMap = buildOrderRankMap(confirmed);
-
-      const withdrawalStats = computeWithdrawalStats({
-        confirmedOrders: confirmed,
-        withdrawals: wRes || [],
-      });
-
-      // This month
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const inMonth = (iso) => iso && new Date(iso) >= monthStart;
-      const ordersMonth = confirmed.filter((o) => inMonth(o.created_at));
-      const allOrdersMonth = ordersArr.filter((o) => inMonth(o.created_at));
-      const clicksMonth = clicks.filter((c) => inMonth(c.clicked_at));
-      const revenueMonth = ordersMonth.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-      const commissionsMonth = ordersMonth.reduce((s, o) => s + getOrderCommission(o, rankMap), 0);
-
-      const uniqueVisitorsKey = (c) => `${(c.referrer||'').toString().slice(0,80)}|${(c.user_agent||'').toString().slice(0,80)}`;
-      const uniqueVisitors = new Set(clicks.map(uniqueVisitorsKey)).size;
-
-      if (!active) return;
-      setStats({
-        confirmedSales: withdrawalStats.totalConfirmedSales,
-        pendingSales: pending.length,
-        totalSales: ordersArr.length,
-        totalRevenue: withdrawalStats.totalRevenue,
-        totalCommissions: withdrawalStats.totalCommissions,
-        availableCommissions: withdrawalStats.availableCommissions,
-        newOrdersSinceWithdraw: withdrawalStats.newOrdersSinceWithdraw,
-        ordersUntilWithdraw: withdrawalStats.ordersUntilWithdraw,
-        canWithdraw: withdrawalStats.canWithdraw,
-        totalClicks: clicks.length,
-        uniqueVisitors,
-        month: {
-          clicks: clicksMonth.length,
-          orders: allOrdersMonth.length,
-          confirmedOrders: ordersMonth.length,
-          revenue: revenueMonth,
-          commissions: commissionsMonth,
-        },
-        isTopMonthly: false,
-      });
-      setRecent(
-        ordersArr.slice(0, 15).map((o) => ({
-          ...o,
-          commission: isConfirmedStatus(o.status) ? getOrderCommission(o, rankMap) : 0,
-        })),
-      );
-      setWithdrawals(wRes || []);
-      setLoading(false);
-    })();
-    return () => { active = false; };
-  }, [authLoading, userDataLoaded, user?.id, promoCodes]);
+  useDashboardRealtime(user?.id, loadDashboardData, !authLoading && userDataLoaded && !!user?.id);
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(refLink); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (_e) { /* clipboard unavailable */ }

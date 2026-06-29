@@ -47,7 +47,9 @@ npx supabase functions deploy track-click --project-ref $ProjectRef --no-verify-
 
 Write-Host "==> Applying DB webhook SQL..."
 Push-Location (Join-Path $Root "backend")
-& (Join-Path $Root "backend\.venv\Scripts\python.exe") scripts/deploy_edge_push.py
+$python = Join-Path $Root "backend\.venv\Scripts\python.exe"
+if (-not (Test-Path $python)) { $python = "python" }
+& $python scripts/deploy_edge_push.py
 Pop-Location
 
 Write-Host "Done."

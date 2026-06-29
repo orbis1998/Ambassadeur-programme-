@@ -85,6 +85,9 @@ def main() -> None:
         cur.execute(MIGRATION_RLS.read_text(encoding="utf-8"))
     if MIGRATION_RLS_FIX.exists():
         cur.execute(MIGRATION_RLS_FIX.read_text(encoding="utf-8"))
+    migration_clicks = Path(__file__).resolve().parent / "migrations" / "010_realtime_clicks.sql"
+    if migration_clicks.exists():
+        cur.execute(migration_clicks.read_text(encoding="utf-8"))
     conn.close()
 
     env_path = ROOT / ".env"

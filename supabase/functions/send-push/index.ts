@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import webpush from "npm:web-push@3.6.7";
+import * as webpush from "jsr:@negrel/webpush@0.5.0";
 
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
 const VAPID_PRIVATE_KEY = (Deno.env.get("VAPID_PRIVATE_KEY") ?? "").replace(/\\n/g, "\n");
@@ -8,15 +8,63 @@ const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-}
-
 const svcHeaders = {
   apikey: SUPABASE_SERVICE_ROLE_KEY,
   Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
   "Content-Type": "application/json",
 };
+
+function base64UrlToBytes(b64: string): Uint8Array {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(b64.replace(/-/g, "+").replace(/_/g, "/") + pad);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function pemToDer(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN[^-]+-----/g, "")
+    .replace(/-----END[^-]+-----/g, "")
+    .replace(/\s/g, "");
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function loadVapidKeyPair(publicB64: string, privatePem: string): Promise<CryptoKeyPair> {
+  const publicKey = await crypto.subtle.importKey(
+    "raw",
+    base64UrlToBytes(publicB64),
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    [],
+  );
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToDer(privatePem),
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign"],
+  );
+  return { publicKey, privateKey };
+}
+
+let appServerPromise: Promise<webpush.ApplicationServer> | null = null;
+
+function getAppServer(): Promise<webpush.ApplicationServer> | null {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return null;
+  if (!appServerPromise) {
+    appServerPromise = loadVapidKeyPair(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY).then((vapidKeys) =>
+      webpush.ApplicationServer.new({
+        contactInformation: VAPID_SUBJECT,
+        vapidKeys,
+      })
+    );
+  }
+  return appServerPromise;
+}
 
 async function listPushSubscriptions(userId: string) {
   const prefix = `push_sub_${userId}_`;
@@ -26,11 +74,13 @@ async function listPushSubscriptions(userId: string) {
   );
   if (!res.ok) return [];
   const rows = await res.json();
-  const out: { key: string; subscription: Record<string, unknown> }[] = [];
+  const out: { key: string; subscription: PushSubscription }[] = [];
   for (const row of rows ?? []) {
     try {
       const parsed = JSON.parse(row.value ?? "{}");
-      if (parsed.subscription) out.push({ key: row.key, subscription: parsed.subscription });
+      if (parsed.subscription?.endpoint) {
+        out.push({ key: row.key, subscription: parsed.subscription as PushSubscription });
+      }
     } catch {
       /* skip malformed */
     }
@@ -46,6 +96,7 @@ async function deleteSubscription(key: string) {
 }
 
 async function markOutbox(outboxId: number, error: string | null, sent: number) {
+  if (!outboxId) return;
   await fetch(`${SUPABASE_URL}/rest/v1/push_outbox?id=eq.${outboxId}`, {
     method: "PATCH",
     headers: svcHeaders,
@@ -66,21 +117,30 @@ async function processOutboxRecord(record: Record<string, unknown>) {
   if (!userId) {
     return { ok: false, error: "invalid_record", sent: 0 };
   }
-  if (!VAPID_PRIVATE_KEY) {
+
+  const appServer = await getAppServer();
+  if (!appServer) {
     if (outboxId) await markOutbox(outboxId, "vapid_not_configured", 0);
     return { ok: false, error: "vapid_not_configured", sent: 0 };
   }
 
   const subs = await listPushSubscriptions(userId);
-  const payload = JSON.stringify({ title, body, url, icon: "/icons/image_1782342973184.jpeg" });
+  const payload = JSON.stringify({
+    title,
+    body,
+    url,
+    icon: "/icons/image_1782342973184.jpeg",
+  });
   let sent = 0;
 
   for (const s of subs) {
     try {
-      await webpush.sendNotification(s.subscription as Record<string, unknown>, payload);
+      const sub = appServer.subscribe(s.subscription);
+      await sub.pushMessage(payload, { urgency: webpush.Urgency.High });
       sent += 1;
     } catch (err: unknown) {
-      const status = (err as { statusCode?: number }).statusCode;
+      const status = (err as { status?: number; statusCode?: number }).status ??
+        (err as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {
         await deleteSubscription(s.key);
       }
@@ -102,6 +162,17 @@ Deno.serve(async (req) => {
     });
   }
 
+  if (req.method === "GET") {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        vapid_configured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
+        webhook_secret_configured: !!WEBHOOK_SECRET,
+      }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405 });
   }
@@ -120,6 +191,8 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "internal_error" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "internal_error", detail: String(err) }), {
+      status: 500,
+    });
   }
 });
