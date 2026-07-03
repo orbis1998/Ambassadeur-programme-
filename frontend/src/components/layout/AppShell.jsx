@@ -1,8 +1,12 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { HEADER_LOGO } from '@/constants/branding';
-import { LayoutDashboard, Wallet, Image as ImageIcon, Settings as SettingsIcon, Bell, LogOut, Menu, X, Award } from 'lucide-react';
+import { HEADER_LOGO, ACADEMY_URL } from '@/constants/branding';
+import {
+  LayoutDashboard, Wallet, Image as ImageIcon, Settings as SettingsIcon,
+  Bell, LogOut, Menu, X, Award, GraduationCap, ExternalLink,
+} from 'lucide-react';
+import PwaNotificationPrompt from '@/components/PwaNotificationPrompt';
 import { useState } from 'react';
 
 const NAV = [
@@ -10,9 +14,52 @@ const NAV = [
   { to: '/dashboard/withdraw', label: 'Retraits', icon: Wallet, testid: 'nav-withdraw' },
   { to: '/dashboard/leaderboard', label: 'Classement', icon: Award, testid: 'nav-leaderboard' },
   { to: '/dashboard/resources', label: 'Ressources', icon: ImageIcon, testid: 'nav-resources' },
+  { href: ACADEMY_URL, label: 'Académie', icon: GraduationCap, testid: 'nav-academy', external: true },
   { to: '/dashboard/notifications', label: 'Notifications', icon: Bell, testid: 'nav-notifications' },
   { to: '/dashboard/settings', label: 'Paramètres', icon: SettingsIcon, testid: 'nav-settings' },
 ];
+
+function navItemClass(active, compact = false) {
+  return `flex items-center gap-3 px-3 ${compact ? 'py-3' : 'py-2.5'} rounded-sm text-sm transition-all ${
+    active
+      ? 'bg-primary/15 text-primary border-l-2 border-primary'
+      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+  }`;
+}
+
+function NavItem({ item, active, onNavigate, mobile = false }) {
+  const Icon = item.icon;
+  const testId = mobile ? `m-${item.testid}` : item.testid;
+
+  if (item.external) {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid={testId}
+        onClick={onNavigate}
+        className={`${navItemClass(false, mobile)} border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50`}
+      >
+        <Icon className="w-4 h-4 shrink-0" />
+        <span className="font-medium flex-1">{item.label}</span>
+        <ExternalLink className="w-3.5 h-3.5 opacity-50 shrink-0" aria-hidden="true" />
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      to={item.to}
+      data-testid={testId}
+      onClick={onNavigate}
+      className={navItemClass(active, mobile)}
+    >
+      <Icon className="w-4 h-4 shrink-0" />
+      <span className="font-medium">{item.label}</span>
+    </Link>
+  );
+}
 
 export default function AppShell() {
   const { signOut, profile, application } = useAuth();
@@ -26,6 +73,13 @@ export default function AppShell() {
   };
 
   const name = profile?.full_name || application?.full_name || 'Ambassadeur';
+  const closeMobile = () => setMobileOpen(false);
+
+  const isActive = (item) => {
+    if (item.external) return false;
+    return location.pathname === item.to
+      || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
+  };
 
   return (
     <div className="min-h-screen flex bg-background grain text-foreground">
@@ -37,25 +91,9 @@ export default function AppShell() {
           </Link>
         </div>
         <nav className="flex-1 px-3 py-6 space-y-1">
-          {NAV.map((item) => {
-            const active = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                data-testid={item.testid}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm transition-all ${
-                  active
-                    ? 'bg-primary/15 text-primary border-l-2 border-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
+          {NAV.map((item) => (
+            <NavItem key={item.testid} item={item} active={isActive(item)} />
+          ))}
         </nav>
         <div className="p-4 border-t border-border">
           <div className="mb-3 px-2">
@@ -88,25 +126,22 @@ export default function AppShell() {
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50" data-testid="mobile-drawer">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-0 bg-black/70" onClick={closeMobile} />
           <div className="absolute right-0 top-0 h-full w-72 bg-card border-l border-border p-5 animate-fade-in">
             <div className="flex justify-between items-center mb-6">
               <img src={HEADER_LOGO} alt="VSM Ambassador" className="h-9" />
-              <button onClick={() => setMobileOpen(false)} data-testid="mobile-close-btn" className="p-2"><X className="w-5 h-5" /></button>
+              <button onClick={closeMobile} data-testid="mobile-close-btn" className="p-2"><X className="w-5 h-5" /></button>
             </div>
             <nav className="space-y-1">
-              {NAV.map((item) => {
-                const Icon = item.icon;
-                const active = location.pathname === item.to;
-                return (
-                  <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
-                    data-testid={`m-${item.testid}`}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-sm text-sm ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary'}`}>
-                    <Icon className="w-4 h-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+              {NAV.map((item) => (
+                <NavItem
+                  key={item.testid}
+                  item={item}
+                  active={isActive(item)}
+                  onNavigate={closeMobile}
+                  mobile
+                />
+              ))}
               <button onClick={handleLogout} data-testid="m-logout-btn"
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-sm text-sm text-muted-foreground hover:bg-secondary mt-4 border-t border-border pt-4">
                 <LogOut className="w-4 h-4" />
@@ -118,6 +153,7 @@ export default function AppShell() {
       )}
 
       <main className="flex-1 min-w-0 pt-14 lg:pt-0">
+        <PwaNotificationPrompt />
         <Outlet />
       </main>
     </div>

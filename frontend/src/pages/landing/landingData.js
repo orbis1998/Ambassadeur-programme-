@@ -1,8 +1,10 @@
 import { TIERS } from '@/lib/ambassador';
 
+import { ACADEMY_URL } from '@/constants/branding';
+
 export const LANDING_PATH = '/ambassadeur';
 
-export const ACADEMY_URL = 'https://vsm-ambassador-hub.vercel.app/login';
+export { ACADEMY_URL };
 
 export const KIT_TSHIRT_IMAGE_FALLBACK =
   'https://ehmgjgrekjoaohnnlfmw.supabase.co/storage/v1/object/public/images/products/1774003850427-sumpdb.png';

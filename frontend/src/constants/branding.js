@@ -6,5 +6,8 @@ export const APP_ICON_512 = '/icons/image_1782342973184.jpeg';
 export const NOTIFICATION_BADGE_192 = '/icons/file_000000008e6471f4811ba9633a86cab4.png';
 export const NOTIFICATION_LOCK_ICON = '/icons/image_1782342973184.jpeg';
 
+/** VSM Ambassador Academy — external training platform */
+export const ACADEMY_URL = 'https://academy.vsmcollection.com';
+
 /** @deprecated use HEADER_LOGO */
 export const BRAND_LOGO = HEADER_LOGO;

@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import PwaPushBootstrap from '@/components/PwaPushBootstrap';
+import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import Login from '@/pages/Login';
 import Apply from '@/pages/Apply';
 import Pending from '@/pages/Pending';
@@ -130,6 +131,7 @@ export default function App() {
     <AuthProvider>
       <PwaPushBootstrap />
       <BrowserRouter>
+        <PwaInstallPrompt />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
