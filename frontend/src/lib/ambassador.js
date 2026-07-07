@@ -159,6 +159,29 @@ export async function fetchCommissionRate() {
 
 export const MIN_WITHDRAWAL_ORDERS = 10;
 
+/** Commandes attribuées à l'ambassadeur (lien direct ou code promo). */
+export async function fetchAmbassadorOrders(userId, promoCodes = [], columns = 'id, total_amount, status, created_at, customer_name, ambassador_id, promo_code_id') {
+  if (!userId) return [];
+
+  const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
+  let q = supabase.from('orders').select(columns).order('created_at', { ascending: false });
+  if (promoIds.length) {
+    q = q.or(`ambassador_id.eq.${userId},promo_code_id.in.(${promoIds.join(',')})`);
+  } else {
+    q = q.eq('ambassador_id', userId);
+  }
+
+  const { data, error } = await q;
+  if (error) console.warn('fetchAmbassadorOrders', error.message);
+
+  const seen = new Set();
+  return (data || []).filter((o) => {
+    if (o?.id == null || seen.has(o.id)) return false;
+    seen.add(o.id);
+    return true;
+  });
+}
+
 const WITHDRAWAL_REJECTED_STATUSES = ['rejected', 'refusee', 'refusée', 'refusé', 'cancelled', 'annulee', 'annulée'];
 
 function normalizeWithdrawalStatus(status) {

@@ -1,13 +1,12 @@
 // VSM Ambassador PWA — service worker with Web Push + offline shell
-const CACHE = 'vsm-amb-v12';
-const APP_ICON = '/icons/image_1782342973184.jpeg';
-const APP_NAME = 'VSM Ambassador';
+const CACHE = 'vsm-amb-v11';
 const SHELL = [
   '/',
   '/index.html',
   '/manifest.json',
-  APP_ICON,
   '/icons/logo-original.png',
+  '/icons/file_000000008e6471f4811ba9633a86cab4.png',
+  '/icons/image_1782342973184.jpeg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -69,13 +68,14 @@ self.addEventListener('push', (event) => {
       data = { title: 'VSM Ambassador', body: event.data.text() };
     }
   }
-  const title = data.title || APP_NAME;
+  const title = data.title || 'VSM Ambassador';
   const options = {
     body: data.body || '',
-    icon: data.icon || APP_ICON,
+    icon: data.icon || '/icons/image_1782342973184.jpeg',
+    badge: '/icons/file_000000008e6471f4811ba9633a86cab4.png',
     data: { url: data.url || '/dashboard' },
     vibrate: [120, 60, 120],
-    tag: data.tag || 'vsm-ambassador',
+    tag: data.tag || 'vsm-amb',
     renotify: true,
   };
   event.waitUntil(self.registration.showNotification(title, options));

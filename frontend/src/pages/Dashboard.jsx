@@ -9,7 +9,7 @@ import {
   getTier, getBadges, MIN_WITHDRAWAL_ORDERS, TIERS,
   isConfirmedStatus, isPendingStatus, isCancelledStatus,
   computeWithdrawalStats, fetchAmbassadorWithdrawals,
-  buildOrderRankMap, getOrderCommission,
+  buildOrderRankMap, getOrderCommission, fetchAmbassadorOrders,
 } from '@/lib/ambassador';
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
@@ -48,23 +48,13 @@ export default function Dashboard() {
 
     setLoading(true);
 
-    const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
-    let ordersQuery = supabase
-      .from('orders')
-      .select('id, total_amount, status, created_at, customer_name, ambassador_id, promo_code_id')
-      .order('created_at', { ascending: false });
-    if (promoIds.length) {
-      ordersQuery = ordersQuery.or(`ambassador_id.eq.${user.id},promo_code_id.in.(${promoIds.join(',')})`);
-    } else {
-      ordersQuery = ordersQuery.eq('ambassador_id', user.id);
-    }
-
-    const [{ data: orders, error: oErr }, { data: links, error: lErr }, wRes] = await Promise.all([
-      ordersQuery,
+    const [orders, linksRes, wRes] = await Promise.all([
+      fetchAmbassadorOrders(user.id, promoCodes),
       supabase.from('ambassador_links').select('id, slug, created_at, active').eq('ambassador_id', user.id),
       fetchAmbassadorWithdrawals(user.id),
     ]);
-    if (oErr) console.warn('orders', oErr.message);
+    const links = linksRes.data;
+    const lErr = linksRes.error;
     if (lErr) console.warn('ambassador_links', lErr.message);
 
     const linkIds = (links || []).map((l) => l.id);

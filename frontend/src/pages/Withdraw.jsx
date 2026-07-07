@@ -2,12 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, computeWithdrawalStats, fetchAmbassadorWithdrawals } from '@/lib/ambassador';
+import { formatFC, MOBILE_OPERATORS, MIN_WITHDRAWAL_ORDERS, relativeDate, isConfirmedStatus, isCancelledStatus, computeWithdrawalStats, fetchAmbassadorWithdrawals, fetchAmbassadorOrders } from '@/lib/ambassador';
 import { Wallet, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Withdraw() {
-  const { user } = useAuth();
+  const { user, promoCodes } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -28,11 +28,11 @@ export default function Withdraw() {
     let active = true;
     (async () => {
       setLoading(true);
-      const [{ data: orders }, wRes] = await Promise.all([
-        supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id),
+      const [orders, wRes] = await Promise.all([
+        fetchAmbassadorOrders(user.id, promoCodes),
         fetchAmbassadorWithdrawals(user.id),
       ]);
-      const confirmed = (orders || []).filter((o) => isConfirmedStatus(o.status));
+      const confirmed = (orders || []).filter((o) => !isCancelledStatus(o.status) && isConfirmedStatus(o.status));
       const withdrawalStats = computeWithdrawalStats({
         confirmedOrders: confirmed,
         withdrawals: wRes || [],
@@ -50,7 +50,7 @@ export default function Withdraw() {
       setLoading(false);
     })();
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, promoCodes]);
 
   const canRequest = stats.canWithdraw;
 

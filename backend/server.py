@@ -461,7 +461,7 @@ async def send_push(user_id: str, title: str, body: str, url: str = "/dashboard"
     if not VAPID_PRIVATE_KEY:
         logger.warning("VAPID private key missing, skip push")
         return 0
-    payload = json.dumps({"title": title, "body": body, "url": url, "icon": "/icons/image_1782342973184.jpeg"})
+    payload = json.dumps({"title": title, "body": body, "url": url, "icon": "/icons/icon-192.png"})
     sent = 0
     async with httpx.AsyncClient() as client:
         subs = await push_list(client, user_id)

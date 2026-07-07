@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { isConfirmedStatus, isPendingStatus, formatFC, relativeDate } from '@/lib/ambassador';
+import { isConfirmedStatus, isPendingStatus, formatFC, relativeDate, fetchAmbassadorOrders, fetchAmbassadorWithdrawals } from '@/lib/ambassador';
 import { Bell, ShoppingBag, Wallet, AlertCircle, Tag } from 'lucide-react';
 
 function buildEvents(orders, withdrawals) {
@@ -40,32 +40,35 @@ function buildEvents(orders, withdrawals) {
 }
 
 export default function Notifications() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, promoCodes, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!user?.id || authLoading) return;
     setLoading(true);
-    const [{ data: orders }, { data: w }] = await Promise.all([
-      supabase.from('orders').select('id, total_amount, status, created_at').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(30),
-      supabase.from('ambassador_withdrawal_requests').select('*').eq('ambassador_id', user.id).order('created_at', { ascending: false }).limit(10),
+    const [orders, w] = await Promise.all([
+      fetchAmbassadorOrders(user.id, promoCodes, 'id, total_amount, status, created_at'),
+      fetchAmbassadorWithdrawals(user.id),
     ]);
-    setItems(buildEvents(orders, w));
+    setItems(buildEvents(orders.slice(0, 30), w));
     setLoading(false);
-  }, [user?.id, authLoading]);
+  }, [user?.id, promoCodes, authLoading]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
-    const channel = supabase
-      .channel(`notif-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `ambassador_id=eq.${user.id}` }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ambassador_withdrawal_requests', filter: `ambassador_id=eq.${user.id}` }, () => load())
-      .subscribe();
+    const promoIds = (promoCodes || []).map((p) => p.id).filter(Boolean);
+    const channel = supabase.channel(`notif-${user.id}`);
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `ambassador_id=eq.${user.id}` }, () => load());
+    if (promoIds.length) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `promo_code_id=in.(${promoIds.join(',')})` }, () => load());
+    }
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'ambassador_withdrawal_requests', filter: `ambassador_id=eq.${user.id}` }, () => load());
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, load]);
+  }, [user?.id, promoCodes, load]);
 
   const ICONS = { sale: ShoppingBag, withdraw: Wallet, alert: AlertCircle, promo: Tag };
 
