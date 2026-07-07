@@ -4,7 +4,8 @@ import {
   ambassadorBadgeCode, formatFC, relativeDate, getTier, buildAmbassadorLink,
 } from '@/lib/ambassador';
 import {
-  fetchAmbassadorDetail, computeAmbassadorMetrics, updateApplication,
+  fetchAmbassadorDetail, computeAmbassadorMetrics, updateApplication, approveApplication,
+  setKitPaid, generatePromoCode, setPromoActive, setLinkActive,
 } from '@/admin/lib/adminApi';
 import AdminPageHeader, {
   AdminStatCard, AdminStatusPill, AdminBtn, AdminLoading, AdminTableWrap,
@@ -15,6 +16,13 @@ export default function AdminAmbassadorDetail() {
   const { userId } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+
+  const reload = async () => {
+    const d = await fetchAmbassadorDetail(userId);
+    setData(d);
+    return d;
+  };
 
   useEffect(() => {
     let active = true;
@@ -27,6 +35,9 @@ export default function AdminAmbassadorDetail() {
   }, [userId]);
 
   const app = data?.applications?.[0];
+  const promo = data?.promos?.[0];
+  const linkRow = data?.links?.[0];
+  const kitPaid = Boolean(data?.profile?.kit_paid);
   const metrics = useMemo(
     () => (data ? computeAmbassadorMetrics(data.orders, data.withdrawals) : null),
     [data],
@@ -34,9 +45,44 @@ export default function AdminAmbassadorDetail() {
 
   const setStatus = async (status) => {
     if (!app) return;
-    await updateApplication(app.id, { status }, status === 'approved' ? 'reactivate' : 'suspend');
-    const d = await fetchAmbassadorDetail(userId);
-    setData(d);
+    setBusy('status');
+    if (status === 'approved') {
+      await approveApplication(app.id);
+    } else {
+      await updateApplication(app.id, { status }, status === 'approved' ? 'reactivate' : 'suspend');
+    }
+    await reload();
+    setBusy('');
+  };
+
+  const toggleKit = async () => {
+    setBusy('kit');
+    await setKitPaid(userId, !kitPaid);
+    await reload();
+    setBusy('');
+  };
+
+  const onGeneratePromo = async () => {
+    setBusy('promo');
+    await generatePromoCode(userId);
+    await reload();
+    setBusy('');
+  };
+
+  const togglePromo = async () => {
+    if (!promo) return;
+    setBusy('promo-toggle');
+    await setPromoActive(promo.id, !promo.active);
+    await reload();
+    setBusy('');
+  };
+
+  const toggleLink = async () => {
+    if (!linkRow) return;
+    setBusy('link-toggle');
+    await setLinkActive(linkRow.id, !linkRow.active);
+    await reload();
+    setBusy('');
   };
 
   if (loading) return <div className="px-10 py-8"><AdminLoading /></div>;
@@ -44,7 +90,7 @@ export default function AdminAmbassadorDetail() {
 
   const name = data.profile?.full_name || app?.full_name || 'Ambassadeur';
   const badge = ambassadorBadgeCode(userId);
-  const slug = data.links?.[0]?.slug || badge;
+  const slug = linkRow?.slug || badge;
   const link = buildAmbassadorLink(slug);
 
   return (
@@ -79,13 +125,51 @@ export default function AdminAmbassadorDetail() {
 
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
         <div className="vsm-card p-5">
+          <h3 className="font-display font-bold mb-3">Kit & accès promotionnel</h3>
+          <dl className="text-sm space-y-3 mb-4">
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-muted-foreground">Kit Ambassadeur (30 $)</dt>
+              <dd>
+                <AdminStatusPill status={kitPaid ? 'approved' : 'pending'} />
+                {data.profile?.kit_paid_at && (
+                  <span className="text-xs text-muted-foreground ml-2">{relativeDate(data.profile.kit_paid_at)}</span>
+                )}
+              </dd>
+            </div>
+            <div><dt className="text-muted-foreground inline">Code promo : </dt>{promo ? <span className="font-mono font-bold text-primary">{promo.code}</span> : '—'}</div>
+            <div><dt className="text-muted-foreground inline">Statut code : </dt>{promo ? <AdminStatusPill status={promo.active ? 'approved' : 'suspended'} /> : 'Non généré'}</div>
+            <div><dt className="text-muted-foreground inline">Lien tracking : </dt>{linkRow ? <span className="font-mono text-xs break-all">{link}</span> : '—'}</div>
+            <div><dt className="text-muted-foreground inline">Statut lien : </dt>{linkRow ? <AdminStatusPill status={linkRow.active ? 'approved' : 'suspended'} /> : 'Non créé'}</div>
+          </dl>
+          <div className="flex flex-wrap gap-2">
+            <AdminBtn onClick={toggleKit} disabled={!!busy}>
+              {kitPaid ? 'Kit non payé' : 'Kit payé'}
+            </AdminBtn>
+            <AdminBtn variant="ghost" onClick={onGeneratePromo} disabled={!!busy || Boolean(promo)}>
+              {promo ? 'Code existant' : 'Générer le code'}
+            </AdminBtn>
+            {promo && (
+              <AdminBtn variant="ghost" onClick={togglePromo} disabled={!!busy}>
+                {promo.active ? 'Désactiver code' : 'Activer code'}
+              </AdminBtn>
+            )}
+            {linkRow && (
+              <AdminBtn variant="ghost" onClick={toggleLink} disabled={!!busy}>
+                {linkRow.active ? 'Désactiver lien' : 'Activer lien'}
+              </AdminBtn>
+            )}
+          </div>
+        </div>
+        <div className="vsm-card p-5">
           <h3 className="font-display font-bold mb-3">Palier — {metrics.tier.current.label}</h3>
           <div className="h-2 rounded-full bg-secondary overflow-hidden mb-2">
             <div className="h-full bg-primary" style={{ width: `${metrics.tier.progress}%` }} />
           </div>
           <p className="text-sm text-muted-foreground">{metrics.confirmedSales} ventes · {metrics.tier.current.rate}% commission</p>
-          <p className="text-xs text-muted-foreground mt-4 break-all">Lien : {link}</p>
         </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-8">
         <div className="vsm-card p-5">
           <h3 className="font-display font-bold mb-3">Profil</h3>
           <dl className="text-sm space-y-2">

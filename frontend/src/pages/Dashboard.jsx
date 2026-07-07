@@ -14,9 +14,13 @@ import {
 import {
   Copy, Check, Share2, Eye, ShoppingCart, Wallet, TrendingUp, MousePointerClick,
   ArrowUpRight, Award, Sparkles, Trophy, Medal, Crown, Flame, ExternalLink, QrCode as QrIcon,
-  Tag, Percent,
+  Tag, Percent, Lock,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import {
+  ACCESS_MESSAGES, canShowPromoCode, canShowTrackingLink,
+  getLinkDisplayState, getPromoDisplayState,
+} from '@/lib/ambassadorAccess';
 
 const ICONS = { sparkles: Sparkles, trophy: Trophy, medal: Medal, crown: Crown, flame: Flame };
 
@@ -31,6 +35,11 @@ export default function Dashboard() {
   const [showQR, setShowQR] = useState(false);
 
   const badge = ambassadorBadgeCode(user?.id);
+  const kitPaid = Boolean(profile?.kit_paid);
+  const showLink = canShowTrackingLink({ kitPaid, trackingLink });
+  const showPromo = canShowPromoCode({ kitPaid, promoCodes });
+  const linkState = getLinkDisplayState({ kitPaid, trackingLink });
+  const promoState = getPromoDisplayState({ kitPaid, promoCodes });
   const slug = trackingLink?.slug || badge;
   const refLink = buildAmbassadorLink(slug);
 
@@ -209,29 +218,37 @@ export default function Dashboard() {
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Mon lien ambassadeur</div>
             <h2 className="font-display text-xl font-bold mt-1">Votre lien personnel</h2>
           </div>
-          <button onClick={() => setShowQR((s) => !s)} className="text-sm flex items-center gap-1 text-muted-foreground hover:text-primary" data-testid="toggle-qr-btn">
-            <QrIcon className="w-4 h-4" /> QR Code
-          </button>
+          {showLink && (
+            <button onClick={() => setShowQR((s) => !s)} className="text-sm flex items-center gap-1 text-muted-foreground hover:text-primary" data-testid="toggle-qr-btn">
+              <QrIcon className="w-4 h-4" /> QR Code
+            </button>
+          )}
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch gap-3">
-          <div className="flex-1 flex items-center bg-input border border-border rounded-sm px-3 py-2 text-sm font-mono break-all" data-testid="ref-link-display">
-            {refLink}
-          </div>
-          <button onClick={copy} data-testid="copy-link-btn" className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 flex items-center justify-center gap-2 min-w-[120px]">
-            {copied ? <><Check className="w-4 h-4" /> Copié</> : <><Copy className="w-4 h-4" /> Copier</>}
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <ShareBtn label="WhatsApp" href={`https://wa.me/?text=${encodeURIComponent('Découvre VSM Collection — Vivre avec style : ' + refLink)}`} testid="share-whatsapp" />
-          <ShareBtn label="Facebook" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(refLink)}`} testid="share-facebook" />
-          <ShareBtn label="X / Twitter" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('VSM Collection — Vivre avec style')}&url=${encodeURIComponent(refLink)}`} testid="share-twitter" />
-          <ShareBtn label="Telegram" href={`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent('Découvre VSM Collection')}`} testid="share-telegram" />
-        </div>
-        {showQR && (
-          <div className="mt-5 flex flex-col items-center gap-3 py-5 border-t border-border" data-testid="qr-display">
-            <div className="p-4 bg-white rounded-sm"><QRCodeSVG value={refLink} size={160} bgColor="#ffffff" fgColor="#0a0a0a" /></div>
-            <p className="text-xs text-muted-foreground">Partagez ce QR code en physique ou en ligne</p>
-          </div>
+        {showLink ? (
+          <>
+            <div className="flex flex-col sm:flex-row items-stretch gap-3">
+              <div className="flex-1 flex items-center bg-input border border-border rounded-sm px-3 py-2 text-sm font-mono break-all" data-testid="ref-link-display">
+                {refLink}
+              </div>
+              <button onClick={copy} data-testid="copy-link-btn" className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 flex items-center justify-center gap-2 min-w-[120px]">
+                {copied ? <><Check className="w-4 h-4" /> Copié</> : <><Copy className="w-4 h-4" /> Copier</>}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <ShareBtn label="WhatsApp" href={`https://wa.me/?text=${encodeURIComponent('Découvre VSM Collection — Vivre avec style : ' + refLink)}`} testid="share-whatsapp" />
+              <ShareBtn label="Facebook" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(refLink)}`} testid="share-facebook" />
+              <ShareBtn label="X / Twitter" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('VSM Collection — Vivre avec style')}&url=${encodeURIComponent(refLink)}`} testid="share-twitter" />
+              <ShareBtn label="Telegram" href={`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent('Découvre VSM Collection')}`} testid="share-telegram" />
+            </div>
+            {showQR && (
+              <div className="mt-5 flex flex-col items-center gap-3 py-5 border-t border-border" data-testid="qr-display">
+                <div className="p-4 bg-white rounded-sm"><QRCodeSVG value={refLink} size={160} bgColor="#ffffff" fgColor="#0a0a0a" /></div>
+                <p className="text-xs text-muted-foreground">Partagez ce QR code en physique ou en ligne</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <AccessPlaceholder state={linkState} testid="link-access-placeholder" />
         )}
       </section>
 
@@ -244,13 +261,11 @@ export default function Dashboard() {
               <Tag className="w-5 h-5 text-primary" /> Mes codes ambassadeur
             </h2>
           </div>
-          <span className="text-xs text-muted-foreground">{promoCodes?.length || 0} code{(promoCodes?.length || 0) > 1 ? 's' : ''}</span>
+          {showPromo && (
+            <span className="text-xs text-muted-foreground">{promoCodes?.length || 0} code{(promoCodes?.length || 0) > 1 ? 's' : ''}</span>
+          )}
         </div>
-        {(!promoCodes || promoCodes.length === 0) ? (
-          <div className="text-center py-6 text-sm text-muted-foreground border border-dashed border-border rounded-sm" data-testid="promo-empty">
-            Aucun code promo encore. L'admin VSM peut en créer un pour vous depuis le site officiel.
-          </div>
-        ) : (
+        {showPromo ? (
           <div className="grid sm:grid-cols-2 gap-3">
             {promoCodes.filter((p) => p.active !== false).map((p) => (
               <div key={p.id} className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 to-transparent p-4 rounded-sm" data-testid={`promo-code-${p.id}`}>
@@ -273,6 +288,8 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        ) : (
+          <AccessPlaceholder state={promoState} testid="promo-access-placeholder" />
         )}
       </section>
 
@@ -427,6 +444,16 @@ function ShareBtn({ label, href, testid }) {
       className="px-3 py-1.5 rounded-sm border border-border text-xs hover:border-primary/60 hover:text-primary transition flex items-center gap-1.5">
       <Share2 className="w-3 h-3" /> {label} <ExternalLink className="w-3 h-3 opacity-60" />
     </a>
+  );
+}
+function AccessPlaceholder({ state, testid }) {
+  const msg = ACCESS_MESSAGES[state] || ACCESS_MESSAGES.kit_pending;
+  return (
+    <div className="text-center py-8 px-4 border border-dashed border-border rounded-sm" data-testid={testid}>
+      <Lock className="w-8 h-8 mx-auto mb-3 text-muted-foreground/60" />
+      <div className="font-display font-bold text-base mb-2">{msg.title}</div>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto">{msg.body}</p>
+    </div>
   );
 }
 function StatusPill({ status }) {

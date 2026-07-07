@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
 
     const app = pickApplication(apps);
     const linkRows = links || [];
-    const link = linkRows.find((l) => l.active !== false) || linkRows[0] || null;
+    const link = linkRows[0] || null;
     const adminUser = isAmbassadorProgramAdmin(p) || adminRpc === true;
 
     setProfile(p || null);

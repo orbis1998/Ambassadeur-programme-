@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { relativeDate } from '@/lib/ambassador';
-import { fetchApplications, updateApplication, deleteApplication, PAGE_SIZE } from '@/admin/lib/adminApi';
+import { fetchApplications, updateApplication, approveApplication, deleteApplication, PAGE_SIZE } from '@/admin/lib/adminApi';
 import AdminPageHeader, {
   AdminStatusPill, AdminFilters, AdminField, AdminSelect, AdminInput,
   AdminBtn, AdminTableWrap, AdminPagination, AdminEmpty, AdminLoading, ExportMenu,
@@ -28,8 +28,13 @@ export default function AdminApplications() {
   useEffect(() => { load(); }, [load]);
 
   const act = async (id, patch, audit) => {
-    await updateApplication(id, patch, audit);
-    if (selected?.id === id) setSelected({ ...selected, ...patch });
+    if (patch.status === 'approved') {
+      await approveApplication(id);
+      if (selected?.id === id) setSelected({ ...selected, status: 'approved' });
+    } else {
+      await updateApplication(id, patch, audit);
+      if (selected?.id === id) setSelected({ ...selected, ...patch });
+    }
     load();
   };
 

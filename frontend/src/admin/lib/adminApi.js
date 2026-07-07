@@ -50,6 +50,42 @@ export async function updateApplication(id, patch, auditAction) {
   return { data, error };
 }
 
+export async function approveApplication(id) {
+  const { data, error } = await supabase.rpc('approve_ambassador_application', {
+    p_application_id: id,
+  });
+  if (!error) await logAudit('approve', 'application', id, { tracking_link: data?.tracking_link?.slug });
+  return { data, error };
+}
+
+export async function setKitPaid(userId, kitPaid) {
+  const patch = {
+    kit_paid: kitPaid,
+    kit_paid_at: kitPaid ? new Date().toISOString() : null,
+  };
+  const { data, error } = await supabase.from('profiles').update(patch).eq('id', userId).select('*').single();
+  if (!error) await logAudit(kitPaid ? 'kit_paid' : 'kit_unpaid', 'profile', userId, patch);
+  return { data, error };
+}
+
+export async function generatePromoCode(userId) {
+  const { data, error } = await supabase.rpc('generate_ambassador_promo_code', { p_user_id: userId });
+  if (!error) await logAudit('promo_generate', 'promo_code', data?.promo_code?.id, { code: data?.promo_code?.code });
+  return { data, error };
+}
+
+export async function setPromoActive(promoId, active) {
+  const { data, error } = await supabase.from('promo_codes').update({ active }).eq('id', promoId).select('*').single();
+  if (!error) await logAudit(active ? 'promo_activate' : 'promo_deactivate', 'promo_code', promoId, { active });
+  return { data, error };
+}
+
+export async function setLinkActive(linkId, active) {
+  const { data, error } = await supabase.from('ambassador_links').update({ active }).eq('id', linkId).select('*').single();
+  if (!error) await logAudit(active ? 'link_activate' : 'link_deactivate', 'ambassador_link', linkId, { active });
+  return { data, error };
+}
+
 export async function deleteApplication(id) {
   const { error } = await supabase.from('ambassador_applications').delete().eq('id', id);
   if (!error) await logAudit('delete', 'application', id);
