@@ -33,13 +33,13 @@ export function pwaStorageSet(key, value) {
 
 export const PWA_KEYS = KEYS;
 
-/** Public ambassador-facing routes where install prompt may appear */
+/** Routes where the native install prompt may appear (first visit, not yet installed). */
+export function isPwaInstallEligiblePath(pathname) {
+  if (!pathname || pathname.startsWith('/admin') || pathname.startsWith('/r/')) return false;
+  return true;
+}
+
+/** @deprecated use isPwaInstallEligiblePath */
 export function isAmbassadorPublicPath(pathname) {
-  return (
-    pathname === '/ambassadeur'
-    || pathname === '/programme-ambassadeur'
-    || pathname === '/ambassador'
-    || pathname === '/login'
-    || pathname === '/apply'
-  );
+  return isPwaInstallEligiblePath(pathname);
 }
