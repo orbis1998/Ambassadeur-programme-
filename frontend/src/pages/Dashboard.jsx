@@ -271,7 +271,7 @@ export default function Dashboard() {
               <div key={p.id} className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 to-transparent p-4 rounded-sm" data-testid={`promo-code-${p.id}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[10px] uppercase tracking-wider text-primary font-bold flex items-center gap-1">
-                    <Percent className="w-3 h-3" /> {p.discount_value}% de remise
+                    <Percent className="w-3 h-3" /> {tier.current.rate}% commission
                   </div>
                   <button
                     onClick={async () => {

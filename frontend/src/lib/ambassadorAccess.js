@@ -3,7 +3,7 @@
 export const ACCESS_MESSAGES = {
   kit_pending: {
     title: 'Intégration en attente',
-    body: 'Finalisez l\'obtention de votre Kit Ambassadeur (30 $) pour débloquer votre code promo et votre lien de parrainage.',
+    body: 'Finalisez l\'obtention de votre Kit Ambassadeur pour débloquer votre code promo et votre lien de parrainage.',
   },
   suspended: {
     title: 'Accès promotionnel suspendu',
