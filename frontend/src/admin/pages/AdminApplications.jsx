@@ -7,6 +7,7 @@ import AdminPageHeader, {
   AdminBtn, AdminTableWrap, AdminPagination, AdminEmpty, AdminLoading, ExportMenu,
 } from '@/admin/components/AdminUi';
 import { exportToCsv, exportToPdfPrint } from '@/admin/lib/export';
+import AdminWhatsAppNotifyBtn from '@/admin/components/AdminWhatsAppNotifyBtn';
 
 export default function AdminApplications() {
   const [rows, setRows] = useState([]);
@@ -96,7 +97,18 @@ export default function AdminApplications() {
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">
                       <div>{r.email}</div>
-                      <div className="text-xs">{r.phone}</div>
+                      <div className="text-xs flex items-center gap-2 flex-wrap mt-0.5">
+                        <span>{r.phone || '—'}</span>
+                        {(r.status || '').toLowerCase() === 'approved' && (
+                          <AdminWhatsAppNotifyBtn
+                            compact
+                            phone={r.phone}
+                            fullName={r.full_name}
+                            userId={r.user_id}
+                            entityId={r.id}
+                          />
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">{relativeDate(r.created_at)}</td>
                     <td className="py-3 px-4"><AdminStatusPill status={r.status} /></td>
@@ -127,14 +139,35 @@ export default function AdminApplications() {
             <div className="space-y-3 text-sm">
               <p><span className="text-muted-foreground">Nom :</span> {selected.full_name}</p>
               <p><span className="text-muted-foreground">Email :</span> {selected.email}</p>
-              <p><span className="text-muted-foreground">Téléphone :</span> {selected.phone}</p>
+              <p className="flex flex-wrap items-center gap-2">
+                <span><span className="text-muted-foreground">Téléphone :</span> {selected.phone || '—'}</span>
+                {(selected.status || '').toLowerCase() === 'approved' && (
+                  <AdminWhatsAppNotifyBtn
+                    compact
+                    phone={selected.phone}
+                    fullName={selected.full_name}
+                    userId={selected.user_id}
+                    entityId={selected.id}
+                  />
+                )}
+              </p>
               <p><span className="text-muted-foreground">Plateforme :</span> {selected.main_platform}</p>
               <p><span className="text-muted-foreground">Profil :</span> {selected.profile_url || '—'}</p>
               <p><span className="text-muted-foreground">Motivation :</span></p>
               <pre className="whitespace-pre-wrap text-xs bg-secondary/40 p-3 rounded-sm border border-border">{selected.motivation}</pre>
             </div>
-            <div className="flex gap-2 mt-6">
-              <AdminBtn onClick={() => act(selected.id, { status: 'approved' }, 'approve')}>Approuver</AdminBtn>
+            <div className="flex flex-wrap gap-2 mt-6">
+              {selected.status !== 'approved' && (
+                <AdminBtn onClick={() => act(selected.id, { status: 'approved' }, 'approve')}>Approuver</AdminBtn>
+              )}
+              {(selected.status || '').toLowerCase() === 'approved' && (
+                <AdminWhatsAppNotifyBtn
+                  phone={selected.phone}
+                  fullName={selected.full_name}
+                  userId={selected.user_id}
+                  entityId={selected.id}
+                />
+              )}
               <AdminBtn variant="ghost" onClick={() => setSelected(null)}>Fermer</AdminBtn>
             </div>
           </div>

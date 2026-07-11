@@ -10,6 +10,7 @@ import {
 import AdminPageHeader, {
   AdminStatCard, AdminStatusPill, AdminBtn, AdminLoading, AdminTableWrap,
 } from '@/admin/components/AdminUi';
+import AdminWhatsAppNotifyBtn from '@/admin/components/AdminWhatsAppNotifyBtn';
 import { ShoppingCart, Wallet, MousePointerClick, TrendingUp, ArrowLeft } from 'lucide-react';
 
 export default function AdminAmbassadorDetail() {
@@ -89,6 +90,7 @@ export default function AdminAmbassadorDetail() {
   if (!data?.profile && !app) return <div className="px-10 py-8 text-muted-foreground">Ambassadeur introuvable</div>;
 
   const name = data.profile?.full_name || app?.full_name || 'Ambassadeur';
+  const phone = data.profile?.phone || app?.phone;
   const badge = ambassadorBadgeCode(userId);
   const slug = linkRow?.slug || badge;
   const link = buildAmbassadorLink(slug);
@@ -103,7 +105,14 @@ export default function AdminAmbassadorDetail() {
         title={name}
         subtitle={`${badge} · ${data.profile?.email || app?.email} · ${data.profile?.phone || app?.phone || '—'}`}
         actions={(
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <AdminWhatsAppNotifyBtn
+              phone={phone}
+              fullName={name}
+              userId={userId}
+              entityType="ambassador"
+              entityId={app?.id || userId}
+            />
             <AdminBtn onClick={() => setStatus('approved')}>Réactiver</AdminBtn>
             <AdminBtn variant="ghost" onClick={() => setStatus('suspended')}>Suspendre</AdminBtn>
             <AdminBtn variant="danger" onClick={() => setStatus('rejected')}>Désactiver</AdminBtn>
@@ -173,6 +182,20 @@ export default function AdminAmbassadorDetail() {
         <div className="vsm-card p-5">
           <h3 className="font-display font-bold mb-3">Profil</h3>
           <dl className="text-sm space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <dt className="text-muted-foreground">Téléphone : </dt>
+              <dd>{phone || '—'}</dd>
+              {(app?.status || 'approved').toLowerCase() === 'approved' && (
+                <AdminWhatsAppNotifyBtn
+                  compact
+                  phone={phone}
+                  fullName={name}
+                  userId={userId}
+                  entityType="ambassador"
+                  entityId={app?.id || userId}
+                />
+              )}
+            </div>
             <div><dt className="text-muted-foreground inline">Plateforme : </dt>{app?.main_platform}</div>
             <div><dt className="text-muted-foreground inline">Profil social : </dt>{app?.profile_url || '—'}</div>
             <div><dt className="text-muted-foreground inline">Codes promo : </dt>{data.promos?.length || 0}</div>
