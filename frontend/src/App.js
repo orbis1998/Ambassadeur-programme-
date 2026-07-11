@@ -27,6 +27,7 @@ import AdminLeaderboard from '@/admin/pages/AdminLeaderboard';
 import AdminResources from '@/admin/pages/AdminResources';
 import AdminNotifications from '@/admin/pages/AdminNotifications';
 import AdminAuditLog from '@/admin/pages/AdminAuditLog';
+import AdminLanding from '@/admin/pages/AdminLanding';
 import '@/App.css';
 import { OPENING_LOGO } from '@/constants/branding';
 
@@ -118,6 +119,7 @@ function AppRoutes() {
         <Route path="/admin/tiers" element={<AdminTiers />} />
         <Route path="/admin/leaderboard" element={<AdminLeaderboard />} />
         <Route path="/admin/resources" element={<AdminResources />} />
+        <Route path="/admin/landing" element={<AdminLanding />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
         <Route path="/admin/audit" element={<AdminAuditLog />} />
       </Route>

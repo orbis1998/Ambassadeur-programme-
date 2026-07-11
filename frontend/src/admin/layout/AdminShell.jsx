@@ -5,7 +5,7 @@ import { HEADER_LOGO } from '@/constants/branding';
 import AdminGlobalSearch from '@/admin/components/AdminGlobalSearch';
 import {
   LayoutDashboard, Users, FileCheck, Wallet, Percent, Award, BarChart3,
-  MousePointerClick, Image as ImageIcon, Bell, ScrollText, LogOut, Shield,
+  MousePointerClick, Image as ImageIcon, Bell, ScrollText, LogOut, Shield, Monitor,
 } from 'lucide-react';
 
 const NAV = [
@@ -18,6 +18,7 @@ const NAV = [
   { to: '/admin/tiers', label: 'Niveaux', icon: Award },
   { to: '/admin/leaderboard', label: 'Classement', icon: BarChart3 },
   { to: '/admin/resources', label: 'Ressources', icon: ImageIcon },
+  { to: '/admin/landing', label: 'Landing page', icon: Monitor },
   { to: '/admin/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin/audit', label: 'Historique', icon: ScrollText },
 ];
