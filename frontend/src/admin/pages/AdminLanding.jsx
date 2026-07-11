@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ExternalLink, ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { LANDING_PATH } from '@/pages/landing/landingData';
+import { LANDING_PRIMARY_SLOTS } from '@/pages/landing/landingMediaSlots';
 import {
   fetchLandingMediaAdmin,
   updateLandingMediaMeta,
@@ -133,11 +134,15 @@ export default function AdminLanding() {
   useEffect(() => { load(); }, [load]);
 
   const grouped = useMemo(() => {
+    const active = rows.filter((r) => LANDING_PRIMARY_SLOTS.includes(r.slot_key));
     const map = {};
-    rows.forEach((r) => {
-      const sec = r.section || 'Autre';
-      if (!map[sec]) map[sec] = [];
-      map[sec].push(r);
+    LANDING_PRIMARY_SLOTS.forEach((key) => {
+      const row = active.find((r) => r.slot_key === key);
+      if (row) {
+        const sec = row.section || 'Principal';
+        if (!map[sec]) map[sec] = [];
+        map[sec].push(row);
+      }
     });
     return Object.entries(map);
   }, [rows]);
@@ -146,7 +151,7 @@ export default function AdminLanding() {
     <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-[1600px] mx-auto">
       <AdminPageHeader
         title="Landing page"
-        subtitle="Gérez les captures d'écran et vidéos de la page /ambassadeur. Uploadez directement depuis votre appareil."
+        subtitle="4 emplacements principaux : vidéo hero, dashboard hero, capture dashboard et carte ambassadeur."
         actions={(
           <a
             href={LANDING_PATH}
@@ -160,8 +165,8 @@ export default function AdminLanding() {
       />
 
       <p className="text-sm text-muted-foreground mb-8 max-w-3xl">
-        Chaque emplacement affiche un placeholder avec titre et légende tant qu&apos;aucun média n&apos;est uploadé.
-        Le bouton « S&apos;inscrire » n&apos;apparaît plus dans le header — les CTAs restent dans le corps de la page.
+        Les captures doivent être au format téléphone (portrait). La vidéo hero peut être en paysage.
+        Les autres sections de la landing utilisent des illustrations intégrées.
       </p>
 
       {loading ? <AdminLoading /> : (

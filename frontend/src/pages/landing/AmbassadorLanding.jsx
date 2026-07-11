@@ -9,17 +9,22 @@ import {
   BENEFITS, STEPS, DASHBOARD_FEATURES, APPLY_FIELDS, FAQ,
   TRUST_POINTS, TESTIMONIALS, LANDING_PATH, KIT_ITEMS, KIT_PRICE,
   TSHIRT_BENEFITS, CARD_BENEFITS, QR_CHANNELS, TRAINING_MODULES,
-  COMMUNITY_FEATURES, CHALLENGES_FEATURES, ACADEMY_SCREENSHOTS, ACADEMY_URL,
+  COMMUNITY_FEATURES, CHALLENGES_FEATURES, ACADEMY_URL,
 } from './landingData';
 import { useLandingStats } from './useLandingStats';
 import { useLandingSeo } from './useLandingSeo';
-import { LandingMediaProvider } from './useLandingMedia';
+import { LandingMediaProvider, useLandingMedia, getSlotMedia, slotHasMedia } from './useLandingMedia';
 import LandingMediaSlot from './LandingMediaSlot';
 import {
   FadeIn, Icon, SectionEyebrow, SectionTitle, PrimaryBtn,
   CtaBand, FaqItem, AnimatedCounter,
 } from './LandingUi';
-import { TierLadder } from './LandingMockups';
+import {
+  CommissionFlowDiagram, TierLadder, QueueTimeline, ApplyPreviewMockup, KitOverviewMockup,
+  TshirtMockup, QrCodeInfographic, AcademyDashboardMockup,
+  AcademyCommunityMockup, AcademyChallengesMockup, AmbassadorCardMockup,
+} from './LandingMockups';
+import { useKitTshirtImage } from './useKitTshirtImage';
 
 function LandingHeader() {
   return (
@@ -65,7 +70,7 @@ function HeroSection() {
           <FadeIn delay={0.15}>
             <div className="relative">
               <div className="absolute -inset-4 bg-primary/5 rounded-lg blur-2xl" aria-hidden="true" />
-              <LandingMediaSlot slotKey="hero_dashboard" aspect="video" />
+              <LandingMediaSlot slotKey="hero_dashboard" aspect="phone" phoneFrame />
             </div>
           </FadeIn>
         </div>
@@ -76,15 +81,24 @@ function HeroSection() {
 
 function HeroVideoSection() {
   return (
-    <section className="py-10 sm:py-14 border-b border-border/50" aria-labelledby="hero-video-title">
-      <div className="vsm-container max-w-4xl mx-auto">
+    <section className="py-16 sm:py-24 lg:py-32 border-b border-border/50" aria-labelledby="hero-video-title">
+      <div className="vsm-container">
         <FadeIn>
           <h2 id="hero-video-title" className="sr-only">Présentation vidéo</h2>
-          <LandingMediaSlot slotKey="hero_video" aspect="wide" framed />
+          <LandingMediaSlot slotKey="hero_video" aspect="hero" framed className="w-full shadow-2xl shadow-primary/15" />
         </FadeIn>
       </div>
     </section>
   );
+}
+
+function KitCardVisual({ className = '' }) {
+  const { mediaBySlot } = useLandingMedia();
+  const slot = getSlotMedia(mediaBySlot, 'kit_card');
+  if (slotHasMedia(slot)) {
+    return <LandingMediaSlot slotKey="kit_card" aspect="phone" phoneFrame className={className} />;
+  }
+  return <AmbassadorCardMockup />;
 }
 
 function StatsBar() {
@@ -182,11 +196,9 @@ function ScreenshotsSection() {
           <SectionTitle id="screens-title">Votre espace ambassadeur</SectionTitle>
           <p className="text-muted-foreground mt-4">Un tableau de bord pensé pour performer — disponible sur mobile et desktop.</p>
         </FadeIn>
-        <div className="grid md:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16 min-w-0">
-          <FadeIn className="min-w-0"><LandingMediaSlot slotKey="dashboard_main" /></FadeIn>
-          <FadeIn delay={0.1} className="min-w-0"><LandingMediaSlot slotKey="dashboard_withdraw" /></FadeIn>
-          <FadeIn delay={0.2} className="min-w-0"><LandingMediaSlot slotKey="dashboard_leaderboard" /></FadeIn>
-        </div>
+        <FadeIn className="flex justify-center mb-12 sm:mb-16">
+          <LandingMediaSlot slotKey="dashboard_main" aspect="phone" phoneFrame />
+        </FadeIn>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {DASHBOARD_FEATURES.map((f, i) => (
             <FadeIn key={f.title} delay={i * 0.04}>
@@ -214,7 +226,7 @@ function CommissionsSection() {
           <SectionTitle id="commission-title">Comment vous gagnez</SectionTitle>
           <p className="text-muted-foreground mt-4">Chaque vente confirmée génère une commission. Votre taux augmente avec votre volume.</p>
         </FadeIn>
-        <FadeIn className="mb-10"><LandingMediaSlot slotKey="commissions_flow" aspect="wide" /></FadeIn>
+        <FadeIn className="mb-10"><CommissionFlowDiagram /></FadeIn>
         <FadeIn delay={0.1}><TierLadder /></FadeIn>
         <FadeIn className="mt-12">
           <CtaBand title="Visez le niveau Elite — 20 %" subtitle="Plus vous vendez, plus vous gagnez par commande." compact />
@@ -240,7 +252,7 @@ function QueueSection() {
             <li>• Lien & QR code débloqués après le Kit</li>
           </ul>
         </FadeIn>
-        <FadeIn delay={0.12} className="min-w-0"><LandingMediaSlot slotKey="queue_validation" /></FadeIn>
+        <FadeIn delay={0.12} className="min-w-0"><QueueTimeline /></FadeIn>
       </div>
     </section>
   );
@@ -258,7 +270,7 @@ function KitSection() {
           </p>
         </FadeIn>
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-10">
-          <FadeIn className="min-w-0"><LandingMediaSlot slotKey="kit_overview" /></FadeIn>
+          <FadeIn className="min-w-0"><KitOverviewMockup /></FadeIn>
           <FadeIn delay={0.1} className="min-w-0">
             <div className="grid gap-4">
               {KIT_ITEMS.map((item) => (
@@ -286,6 +298,8 @@ function KitSection() {
 }
 
 function KitUtilitySection() {
+  const tshirtSrc = useKitTshirtImage();
+
   return (
     <section className="py-16 sm:py-28" aria-labelledby="kit-utility-title">
       <div className="vsm-container">
@@ -296,9 +310,7 @@ function KitUtilitySection() {
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           <FadeIn className="min-w-0">
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start mb-6">
-              <div className="w-full sm:w-48 shrink-0">
-                <LandingMediaSlot slotKey="kit_tshirt" aspect="portrait" />
-              </div>
+              <TshirtMockup imageSrc={tshirtSrc} />
               <div className="min-w-0">
                 <h3 className="font-display text-xl uppercase font-bold mb-4 text-center sm:text-left">Le T-shirt officiel</h3>
                 <ul className="space-y-3">
@@ -322,7 +334,7 @@ function KitUtilitySection() {
                 </li>
               ))}
             </ul>
-            <LandingMediaSlot slotKey="kit_card" aspect="portrait" />
+            <KitCardVisual className="mx-auto lg:mx-0" />
           </FadeIn>
         </div>
       </div>
@@ -341,7 +353,7 @@ function QrCodeSection() {
             Chaque ambassadeur possède un QR Code unique. Un scan = une vente rattachée à votre compte, automatiquement.
           </p>
         </FadeIn>
-        <FadeIn className="mb-8 min-w-0"><LandingMediaSlot slotKey="qr_tracking" aspect="wide" /></FadeIn>
+        <FadeIn className="mb-8 min-w-0"><QrCodeInfographic /></FadeIn>
         <div className="grid sm:grid-cols-3 gap-4 mb-10">
           {QR_CHANNELS.map((ch, i) => (
             <FadeIn key={ch.title} delay={i * 0.06}>
@@ -372,7 +384,7 @@ function AcademySection() {
           </p>
         </FadeIn>
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-10">
-          <FadeIn className="min-w-0"><LandingMediaSlot slotKey="academy_main" /></FadeIn>
+          <FadeIn className="min-w-0"><AcademyDashboardMockup /></FadeIn>
           <FadeIn delay={0.1} className="min-w-0">
             <ul className="space-y-4 text-sm text-muted-foreground">
               <li className="flex gap-3"><Icon name="GraduationCap" className="w-5 h-5 text-primary shrink-0" /><span><strong className="text-foreground">12+ modules</strong> — de l'intégration au personal branding</span></li>
@@ -422,7 +434,7 @@ function CommunitySection() {
   return (
     <section className="py-16 sm:py-28" aria-labelledby="community-title">
       <div className="vsm-container grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-        <FadeIn className="min-w-0 order-2 lg:order-1"><LandingMediaSlot slotKey="academy_community" /></FadeIn>
+        <FadeIn className="min-w-0 order-2 lg:order-1"><AcademyCommunityMockup /></FadeIn>
         <FadeIn delay={0.1} className="min-w-0 order-1 lg:order-2">
           <SectionEyebrow>Entraide</SectionEyebrow>
           <SectionTitle id="community-title">Communauté privée</SectionTitle>
@@ -466,30 +478,7 @@ function ChallengesSection() {
             ))}
           </div>
         </FadeIn>
-        <FadeIn delay={0.1} className="min-w-0"><LandingMediaSlot slotKey="academy_challenges" /></FadeIn>
-      </div>
-    </section>
-  );
-}
-
-function AcademyScreensSection() {
-  return (
-    <section className="py-16 sm:py-28" aria-labelledby="academy-screens-title">
-      <div className="vsm-container">
-        <FadeIn className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
-          <SectionEyebrow>Plateforme Académie</SectionEyebrow>
-          <SectionTitle id="academy-screens-title">Votre espace de formation</SectionTitle>
-        </FadeIn>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {ACADEMY_SCREENSHOTS.map((s, i) => (
-            <FadeIn key={s.key} delay={i * 0.05} className="min-w-0">
-              <LandingMediaSlot slotKey={`academy_screen_${s.key}`} aspect="video" />
-            </FadeIn>
-          ))}
-        </div>
-        <FadeIn className="mt-8 min-w-0 hidden lg:block max-w-2xl mx-auto">
-          <LandingMediaSlot slotKey="academy_courses_wide" aspect="wide" />
-        </FadeIn>
+        <FadeIn delay={0.1} className="min-w-0"><AcademyChallengesMockup /></FadeIn>
       </div>
     </section>
   );
@@ -522,7 +511,7 @@ function ApplyPreviewSection() {
     <section className="py-20 sm:py-28 bg-secondary/20" aria-labelledby="apply-preview-title">
       <div className="vsm-container grid lg:grid-cols-2 gap-12 items-center">
         <FadeIn>
-          <LandingMediaSlot slotKey="apply_form" />
+          <ApplyPreviewMockup />
         </FadeIn>
         <FadeIn delay={0.1}>
           <SectionEyebrow>Inscription</SectionEyebrow>
@@ -727,7 +716,6 @@ export default function AmbassadorLanding() {
           <TrainingSection />
           <CommunitySection />
           <ChallengesSection />
-          <AcademyScreensSection />
           <EcosystemCtaSection />
           <SocialProofSection />
           <TrustSection />

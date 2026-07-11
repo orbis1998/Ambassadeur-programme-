@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserFrame } from './LandingUi';
+import { BrowserFrame, PhoneFrame } from './LandingUi';
 import { TIERS } from '@/lib/ambassador';
 
 export function DashboardMockup() {
@@ -295,8 +295,8 @@ export function QrCodeInfographic() {
 
 export function AcademyDashboardMockup() {
   return (
-    <BrowserFrame title="VSM Ambassador Academy — Dashboard">
-      <div className="space-y-3 text-xs min-w-[240px]">
+    <PhoneFrame>
+      <div className="p-3 space-y-3 text-xs bg-black min-h-[320px]">
         <div className="flex items-center justify-between gap-2">
           <p className="font-display uppercase text-sm truncate">Academy</p>
           <span className="vsm-badge text-[8px] shrink-0">Niveau 3</span>
@@ -319,14 +319,14 @@ export function AcademyDashboardMockup() {
         </div>
         <p className="text-[9px] text-muted-foreground">Progression globale — 67 %</p>
       </div>
-    </BrowserFrame>
+    </PhoneFrame>
   );
 }
 
 export function AcademyCoursesMockup() {
   return (
-    <BrowserFrame title="Formations — modules">
-      <div className="space-y-2 text-xs min-w-[240px]">
+    <PhoneFrame>
+      <div className="p-3 space-y-2 text-xs bg-black min-h-[320px]">
         {[
           { t: 'Formation d\'intégration', p: '100 %', done: true },
           { t: 'Marketing d\'influence', p: '60 %', done: false },
@@ -345,14 +345,14 @@ export function AcademyCoursesMockup() {
           </div>
         ))}
       </div>
-    </BrowserFrame>
+    </PhoneFrame>
   );
 }
 
 export function AcademyCommunityMockup() {
   return (
-    <BrowserFrame title="Communauté — fil d'actualité">
-      <div className="space-y-2 text-xs min-w-[240px]">
+    <PhoneFrame>
+      <div className="p-3 space-y-2 text-xs bg-black min-h-[320px]">
         {[
           { user: 'Jean P.', text: 'Mon premier challenge réussi ! 🎉', likes: 24 },
           { user: 'Sarah M.', text: 'Conseil : utilisez le QR en story', likes: 18 },
@@ -371,14 +371,14 @@ export function AcademyCommunityMockup() {
           ))}
         </div>
       </div>
-    </BrowserFrame>
+    </PhoneFrame>
   );
 }
 
 export function AcademyChallengesMockup() {
   return (
-    <BrowserFrame title="Défis & badges">
-      <div className="space-y-2 text-xs min-w-[240px]">
+    <PhoneFrame>
+      <div className="p-3 space-y-2 text-xs bg-black min-h-[320px]">
         <div className="border border-primary/40 bg-primary/5 rounded-sm p-3">
           <p className="font-display text-[10px] uppercase text-primary">Défi du mois</p>
           <p className="text-[10px] mt-1">5 ventes en 7 jours</p>
@@ -393,7 +393,7 @@ export function AcademyChallengesMockup() {
           ))}
         </div>
       </div>
-    </BrowserFrame>
+    </PhoneFrame>
   );
 }
 
