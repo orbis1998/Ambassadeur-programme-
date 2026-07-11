@@ -52,21 +52,14 @@ export default function LandingMediaSlot({
 
   return (
     <div
-      className={`${frameClass} ${aspectClass} flex flex-col items-center justify-center p-6 sm:p-8 text-center border border-dashed border-border/80 bg-secondary/20 ${className}`}
+      className={`${frameClass} ${aspectClass} flex items-center justify-center border border-dashed border-border/60 bg-secondary/10 ${className}`}
       data-landing-slot={slotKey}
+      aria-hidden="true"
     >
       {slot?.media_type === 'video' ? (
-        <PlayCircle className="w-10 h-10 text-muted-foreground/50 mb-3" aria-hidden="true" />
+        <PlayCircle className="w-8 h-8 text-muted-foreground/30" />
       ) : (
-        <ImageIcon className="w-10 h-10 text-muted-foreground/50 mb-3" aria-hidden="true" />
-      )}
-      <p className="font-display text-xs sm:text-sm uppercase font-semibold text-muted-foreground">
-        {slot?.title || slotKey}
-      </p>
-      {slot?.caption && (
-        <p className="text-[11px] sm:text-xs text-muted-foreground/80 mt-2 max-w-sm leading-relaxed">
-          {slot.caption}
-        </p>
+        <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
       )}
     </div>
   );

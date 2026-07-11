@@ -5,7 +5,7 @@ export default function AdminPageHeader({ eyebrow = 'Administration', title, sub
     <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8 animate-fade-up">
       <div>
         <div className="text-xs uppercase tracking-[0.3em] text-primary mb-2">{eyebrow}</div>
-        <h1 className="text-3xl sm:text-4xl font-display font-bold leading-tight">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold leading-tight">{title}</h1>
         {subtitle && <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -72,7 +72,7 @@ export function AdminFilters({ children }) {
 
 export function AdminField({ label, children }) {
   return (
-    <label className="flex flex-col gap-1.5 text-xs uppercase tracking-wider text-muted-foreground min-w-[140px]">
+    <label className="flex flex-col gap-1.5 text-xs uppercase tracking-wider text-muted-foreground w-full sm:min-w-[140px] sm:w-auto flex-1 sm:flex-initial">
       {label}
       {children}
     </label>
@@ -119,9 +119,9 @@ export function AdminPagination({ page, total, pageSize, onPage }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages <= 1) return null;
   return (
-    <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 text-sm text-muted-foreground">
       <span>{total} résultat{total > 1 ? 's' : ''}</span>
-      <div className="flex gap-2">
+      <div className="flex gap-2 self-end sm:self-auto">
         <AdminBtn variant="ghost" disabled={page <= 0} onClick={() => onPage(page - 1)}>Préc.</AdminBtn>
         <span className="px-2 py-2">{page + 1} / {pages}</span>
         <AdminBtn variant="ghost" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>Suiv.</AdminBtn>

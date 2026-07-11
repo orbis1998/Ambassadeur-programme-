@@ -25,14 +25,14 @@ export default function AdminGlobalSearch() {
   }, [q, run]);
 
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2 bg-input border border-border rounded-sm px-3 py-2 min-w-[280px]">
+    <div className="relative w-full max-w-md lg:max-w-lg">
+      <div className="flex items-center gap-2 bg-input border border-border rounded-sm px-3 py-2 w-full min-w-0">
         <Search className="w-4 h-4 text-muted-foreground shrink-0" />
         <AdminInput
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Rechercher ambassadeur, email, commande…"
+          placeholder="Rechercher…"
           className="border-0 bg-transparent p-0 focus:ring-0 flex-1"
         />
         {q && (
@@ -44,7 +44,7 @@ export default function AdminGlobalSearch() {
       {open && results && q.length >= 2 && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full mt-2 right-0 z-50 w-[420px] max-w-[90vw] vsm-card p-3 shadow-xl animate-fade-in">
+          <div className="absolute top-full mt-2 left-0 right-0 sm:left-auto sm:right-0 z-50 w-full sm:w-[420px] max-w-[calc(100vw-2rem)] vsm-card p-3 shadow-xl animate-fade-in">
             {!(results.ambassadors.length || results.orders.length || results.withdrawals.length) ? (
               <p className="text-sm text-muted-foreground p-2">Aucun résultat</p>
             ) : (

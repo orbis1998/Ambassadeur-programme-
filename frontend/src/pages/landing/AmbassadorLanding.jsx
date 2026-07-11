@@ -479,7 +479,6 @@ function AcademyScreensSection() {
         <FadeIn className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
           <SectionEyebrow>Plateforme Académie</SectionEyebrow>
           <SectionTitle id="academy-screens-title">Votre espace de formation</SectionTitle>
-          <p className="text-muted-foreground mt-4 text-sm sm:text-base">Captures réelles de la plateforme Academy — gérées depuis l'admin.</p>
         </FadeIn>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {ACADEMY_SCREENSHOTS.map((s, i) => (
